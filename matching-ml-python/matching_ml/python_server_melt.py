@@ -2084,7 +2084,7 @@ def inner_sentencetransformers_prediction(request_headers):
             len(corpus),
             len(queries),
         )
-
+        # todo: extend sentence transformer with kbert (maybe simCSE, maybe SBERT)
         app.logger.info("Compute corpus embedding.")
         corpus_embeddings = embedder.encode(corpus, convert_to_tensor=True)
         app.logger.info("Compute query embedding.")

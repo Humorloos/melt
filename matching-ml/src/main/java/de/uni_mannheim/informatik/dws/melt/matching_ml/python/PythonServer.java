@@ -203,6 +203,7 @@ public class PythonServer {
      * @throws PythonServerException in case something goes wrong.
      */
     public Alignment sentenceTransformersPrediction(SentenceTransformersMatcher matcher, File corpusFile, File queriesFile) throws PythonServerException{
+//        todo: decide how to best connect python and java (change this method, or create a new one?), but only after adapting the python server code (to have better Idea of what is required)
         
         HttpGet request = new HttpGet(serverUrl + "/sentencetransformers-prediction");
         transformersUpdateBaseRequest(matcher, request);

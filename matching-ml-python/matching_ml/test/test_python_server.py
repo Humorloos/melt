@@ -85,6 +85,28 @@ def test_get_similarity():
     assert float(result_str) > 0
 
 
+def test_sentence_transformers_prediction():
+    test_model = 'paraphrase-albert-small-v2'
+    result = requests.get(
+        uri_prefix + "sentencetransformers-prediction",
+        headers={
+            "model-name": "paraphrase-albert-small-v2",
+            "using-tf": "false",
+            "training-arguments": "{}",
+            "tmp-dir": "C:\\Users\\Lukas\\AppData\\Local\\Temp",
+            "multi-processing": "no_multi_process",
+            "corpus-file-name": "C:\\Users\\Lukas\\AppData\\Local\\Temp\\corpus1480372248207767619.txt",
+            "queries-file-name": "C:\\Users\\Lukas\\AppData\\Local\\Temp\\queries8503191807179937988.txt",
+            "query-chunk-size": "100",
+            "corpus-chunk-size": "500000",
+            "topk": "5",
+            "both-directions": "true",
+            "topk-per-resource": "true",
+        },
+        )
+    print('')
+
+
 def teardown_module(module):
     print("Shutting down...")
     server_thread.stop()
