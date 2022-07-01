@@ -1163,12 +1163,12 @@ public class PythonServer {
         File serverResourceDirectory = this.resourcesDirectory;
         serverResourceDirectory.mkdirs();
 
-        exportResource(serverResourceDirectory, "python_server_melt.py");
+        exportResource(serverResourceDirectory, "matching_ml/python_server_melt.py");
         exportResource(serverResourceDirectory, "requirements.txt");
 
         httpClient = HttpClients.createDefault(); // has to be re-instantiated
         String canonicalPath;
-        File serverFile = new File(serverResourceDirectory, "python_server_melt.py");
+        File serverFile = new File(serverResourceDirectory, "matching_ml/python_server_melt.py");
         try {
             if (!serverFile.exists()) {
                 LOGGER.error("Server File does not exist. Cannot start server. ABORTING. Please make sure that " +
@@ -1277,7 +1277,7 @@ public class PythonServer {
         if (PythonServer.pythonCommandBackup != null && !PythonServer.pythonCommandBackup.isEmpty()) {
             return PythonServer.pythonCommandBackup;
         } else {
-            return "python"; //the default
+            return "py"; //the default
         }
     }
 
