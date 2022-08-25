@@ -32,6 +32,11 @@ public abstract class TransformersBaseFineTuner extends TransformersBase {
     protected static final String NEWLINE = System.getProperty("line.separator");
     
     protected File resultingModelLocation;
+
+    public void setTrainingFile(File trainingFile) {
+        this.trainingFile = trainingFile;
+    }
+
     protected File trainingFile;
     
     protected boolean additionallySwitchSourceTarget;
