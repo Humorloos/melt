@@ -116,7 +116,7 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
     }
 
     @Override
-    public Stream<String> getIndexStream(Iterator<? extends OntResource> resourceIterator) {
+    public Stream<String> getIndexStream(Iterator<? extends Resource> resourceIterator) {
         return streamFromIterator(resourceIterator)
                 .flatMap(r -> Stream.concat(getObjectStatementStream(r), getSubjectStatementStream(r)))
                 .flatMap(stmt -> Stream.of(stmt.getSubject(), stmt.getPredicate(), stmt.getObject()))
