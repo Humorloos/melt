@@ -88,6 +88,7 @@ public abstract class TransformersBase extends MatcherYAAAJena {
      */
     public TransformersBase(TextExtractor extractor, String modelName) {
         this(TextExtractorMap.wrapTextExtractor(extractor), modelName);
+        this.simpleExtractor = extractor;
     }
     
     /**
