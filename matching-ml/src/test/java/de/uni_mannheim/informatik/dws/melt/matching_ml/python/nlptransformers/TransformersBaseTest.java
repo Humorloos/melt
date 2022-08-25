@@ -2,20 +2,19 @@ package de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers;
 
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractorMap;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Alignment;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.jena.ontology.OntModel;
+import org.junit.jupiter.api.Test;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
-import org.apache.commons.text.StringEscapeUtils;
-import org.apache.jena.ontology.OntModel;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TransformersBaseTest {
     
