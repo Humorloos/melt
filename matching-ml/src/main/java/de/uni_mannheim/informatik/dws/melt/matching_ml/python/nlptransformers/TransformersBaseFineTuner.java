@@ -3,6 +3,7 @@ package de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers;
 import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractor;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractorMap;
+import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextExtractorKbert;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Alignment;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Correspondence;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.CorrespondenceRelation;
@@ -62,6 +63,7 @@ public abstract class TransformersBaseFineTuner extends TransformersBase {
      */
     public TransformersBaseFineTuner(TextExtractor extractor, String initialModelName, File resultingModelLocation) {
         this(TextExtractorMap.wrapTextExtractor(extractor), initialModelName, resultingModelLocation);
+        this.simpleExtractor = extractor;
     }
     
     @Override
@@ -152,6 +154,16 @@ public abstract class TransformersBaseFineTuner extends TransformersBase {
                 if(examplesForThisCorrespondence == 0){
                     notUsedCorrespondences++;
                 }
+            }
+        }
+        // for tm modification, write index file
+        if (this.tm) {
+            File indexOutputFile = new File(trainFile.getParentFile(), "index_" + trainFile.getName());
+            Files.createDirectories(indexOutputFile.getParentFile().toPath());
+            try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
+                ((TextExtractorKbert) this.simpleExtractor)
+                        .getIndexStream(cache.keySet().iterator())
+                        .forEach(printWriter::println);
             }
         }
         LOGGER.info("Wrote {} positive and {} negative training EXAMPLES. "

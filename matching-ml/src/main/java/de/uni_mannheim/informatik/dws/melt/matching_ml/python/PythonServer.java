@@ -215,7 +215,6 @@ public class PythonServer {
         request.addHeader("topk", Integer.toString(matcher.getTopK()));
         request.addHeader("both-directions", Boolean.toString(matcher.isBothDirections()));
         request.addHeader("topk-per-resource", Boolean.toString(matcher.isTopkPerResource()));
-        request.addHeader("kbert", Boolean.toString(matcher.getClass() == KBertSentenceTransformersMatcher.class));
         request.addHeader("pooling-mode", matcher.getPoolingMode());
         request.addHeader("sampling-mode", matcher.getSamplingMode());
 
@@ -269,6 +268,7 @@ public class PythonServer {
         request.addHeader("training-arguments", base.getTrainingArguments().toJsonString());
         request.addHeader("tmp-dir", getCanonicalPath(FileUtil.getUserTmpFolder()));
         request.addHeader("multi-processing", base.getMultiProcessing().toString());
+        request.addHeader("tm", Boolean.toString(base.isTM()));
 
         String cudaVisibleDevices = base.getCudaVisibleDevices();
         if (cudaVisibleDevices != null) {

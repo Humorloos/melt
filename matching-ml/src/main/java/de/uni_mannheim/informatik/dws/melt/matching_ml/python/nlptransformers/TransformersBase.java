@@ -43,6 +43,7 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     private static final Logger LOGGER = LoggerFactory.getLogger(TransformersBase.class);
 
     protected TextExtractorMap extractor;
+    protected TextExtractor simpleExtractor;
     protected String modelName;
     
     protected TransformersTrainerArguments trainingArguments;
@@ -51,6 +52,7 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     protected File transformersCache;
     protected TransformersMultiProcessing multiProcessing;
     protected boolean multipleTextsToMultipleExamples;
+    protected boolean tm;
 
     /**
      * Constructor with all required parameters.
@@ -72,6 +74,7 @@ public abstract class TransformersBase extends MatcherYAAAJena {
         this.transformersCache = null; //use default
         this.multiProcessing = TransformersMultiProcessing.SPAWN;
         this.multipleTextsToMultipleExamples = false;
+        this.tm = false;
     }
     
     /**
@@ -110,6 +113,14 @@ public abstract class TransformersBase extends MatcherYAAAJena {
      */
     public void setExtractor(TextExtractor extractor) {
         this.extractor = TextExtractorMap.wrapTextExtractor(extractor);
+    }
+
+    public void setTM(boolean tm) {
+        this.tm = tm;
+    }
+
+    public boolean isTM() {
+        return tm;
     }
     
     /**

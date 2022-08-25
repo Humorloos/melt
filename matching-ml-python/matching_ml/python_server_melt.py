@@ -2079,7 +2079,7 @@ def inner_sentencetransformers_prediction(request_headers):
             else None
         )
 
-        if "kbert" in request_headers and request_headers["kbert"].lower() == "true":
+        if "tm" in request_headers and request_headers["tm"].lower() == "true":
             from kbert.KBertSentenceTransformer import KBertSentenceTransformer
             embedder = KBertSentenceTransformer(
                 model_name,

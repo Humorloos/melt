@@ -27,6 +27,7 @@ public class KBertSentenceTransformersMatcher extends SentenceTransformersMatche
 
     public KBertSentenceTransformersMatcher(TextExtractorKbert extractor, String modelName) {
         super(extractor, modelName);
+        this.setTM(true);
         this.extractor = extractor;
         this.fileSuffix = ".csv";
     }
