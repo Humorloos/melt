@@ -7,17 +7,20 @@ import de.uni_mannheim.informatik.dws.melt.matching_ml.python.PythonServer;
 import de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.SentenceTransformersMatcher;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Alignment;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Correspondence;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.jena.ontology.OntModel;
 import org.apache.jena.rdf.model.RDFNode;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import static org.apache.commons.text.StringEscapeUtils.escapeCsv;
 
 public class KBertSentenceTransformersMatcher extends SentenceTransformersMatcher {
     public static final Map<Boolean, String> NORMALIZED_MAP = Map.of(true, "normalized", false, "raw");
@@ -93,7 +96,7 @@ public class KBertSentenceTransformersMatcher extends SentenceTransformersMatche
                     .forEach(r -> textExtractorKbert.extract(r)
                             .forEach(line -> {
                                 try {
-                                    writer.write(line);
+                                    writer.write(escapeCsv(r.getURI()) + "," + escapeCsv(line) + NEWLINE);
                                 } catch (IOException e) {
                                     throw new RuntimeException(e);
                                 }

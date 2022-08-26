@@ -12,7 +12,6 @@ import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtra
 import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.statement.SubjectStatement;
 import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractorsMap.TextExtractorMapSet;
 import org.apache.jena.atlas.lib.SetUtils;
-import org.apache.jena.ontology.OntResource;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.Statement;
 import org.jetbrains.annotations.NotNull;
@@ -22,7 +21,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.SentenceTransformersMatcher.NEWLINE;
 import static de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.kbert.KBertSentenceTransformersMatcher.streamFromIterator;
 import static org.apache.commons.lang3.StringEscapeUtils.escapeCsv;
 
@@ -42,13 +40,11 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
         Set<Map<String, Set<?>>> molecules = moleculesFromResource(targetResource);
         ObjectMapper mapper = new ObjectMapper();
         return molecules.stream().map(molecule -> {
-            String jsonMolecule;
             try {
-                jsonMolecule = mapper.writer().writeValueAsString(molecule);
+                return mapper.writer().writeValueAsString(molecule);
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
-            return escapeCsv(targetResource.getURI()) + "," + escapeCsv(jsonMolecule) + NEWLINE;
         }).collect(Collectors.toSet());
     }
 
