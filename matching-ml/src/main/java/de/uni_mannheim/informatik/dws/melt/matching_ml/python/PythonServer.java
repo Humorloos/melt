@@ -1171,13 +1171,18 @@ public class PythonServer {
         String pythonZipName = pythonResourceName + ".zip";
         exportResource(serverResourceDirectory, pythonZipName);
 
-        try (ZipFile pythonZip = new ZipFile(serverResourceDirectory + "/"+ pythonZipName)) {
+        try (ZipFile pythonZip = new ZipFile(serverResourceDirectory + "/" + pythonZipName)) {
             pythonZip.extractAll(serverResourceDirectory.toString());
+
+            File pythonTargetDir = new File(serverResourceDirectory, PYTHON_DIRECTORY_NAME);
+            if (pythonTargetDir.exists()) {
+                FileUtils.deleteDirectory(pythonTargetDir);
+            }
+            FileUtils.moveDirectory(new File(serverResourceDirectory, pythonResourceName),
+                    pythonTargetDir);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        new File(serverResourceDirectory, pythonResourceName)
-                .renameTo(new File(serverResourceDirectory, PYTHON_DIRECTORY_NAME));
 
         exportResource(serverResourceDirectory, "requirements.txt");
 
