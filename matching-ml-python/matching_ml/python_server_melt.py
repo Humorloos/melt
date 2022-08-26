@@ -9,7 +9,6 @@ import logging
 import os
 import sys
 import pkg_resources
-from pkg_resources import DistributionNotFound
 import pathlib
 import tempfile
 import re
@@ -2084,7 +2083,6 @@ def inner_sentencetransformers_prediction(request_headers):
             embedder = KBertSentenceTransformer(
                 model_name,
                 cache_folder=cache_folder_path,
-                sampling_mode=request_headers['sampling-mode'],
                 pooling_mode=request_headers['pooling-mode'],
                 index_files=[get_index_file_path(p) for p in [corpus_file_name, queries_file_name]]
             )

@@ -90,7 +90,7 @@ def test_sentence_transformers_prediction_kbert(client):
         headers={
             "pooling-mode": "mean_target",
             "sampling-mode": "stratified",
-            "kbert": "true",
+            "tm": "true",
             "model-name": "paraphrase-albert-small-v2",
             "using-tf": "false",
             "training-arguments": "{}",
@@ -110,7 +110,6 @@ def test_sentence_transformers_prediction_kbert(client):
 
 def test_sentence_transformers_prediction(client):
     # def test_sentence_transformers_prediction_kbert():
-    test_model = 'paraphrase-albert-small-v2'
     response = client.get(
         "/sentencetransformers-prediction",
         headers={
