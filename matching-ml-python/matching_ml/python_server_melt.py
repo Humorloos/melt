@@ -1635,7 +1635,7 @@ def inner_transformers_finetuning(request_headers):
         training_arguments.pop("weight_of_positive_class", None)  # delete if existent
 
         from transformers import AutoTokenizer
-        if request_headers.get('tm', False):
+        if request_headers.get('tm', 'false').lower() == 'true':
             tokenizer = TMTokenizer.from_pretrained(
                 initial_model_name, index_files=[get_index_file_path(training_file)])
         else:
