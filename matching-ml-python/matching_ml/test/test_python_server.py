@@ -128,3 +128,41 @@ def test_sentence_transformers_prediction(client):
         },
     )
     print('')
+
+
+def test_transformers_finetuning_tm(client):
+    # def test_sentence_transformers_prediction_kbert():
+    model_dir = RESOURCES_DIR / 'kbert' / 'raw' / 'all_targets' / 'isMulti_true'
+    response = client.get(
+        "/transformers-finetuning",
+        headers={
+            "model-name": "albert-base-v2",
+            "using-tf": "false",
+            "training-arguments": "{}",
+            "tmp-dir": str(RESOURCES_DIR),
+            "tm": "true",
+            "multi-processing": "spawn",
+            "resulting-model-location": str(model_dir / 'trained_model'),
+            "training-file": str(model_dir / 'train.csv')
+        },
+    )
+    print('')
+
+
+def test_transformers_finetuning(client):
+    # def test_sentence_transformers_prediction_kbert():
+    model_dir = RESOURCES_DIR / 'original'
+    response = client.get(
+        "/transformers-finetuning",
+        headers={
+            "model-name": "albert-base-v2",
+            "using-tf": "false",
+            "training-arguments": "{}",
+            "tmp-dir": str(RESOURCES_DIR),
+            "tm": "false",
+            "multi-processing": "spawn",
+            "resulting-model-location": str(model_dir / 'trained_model'),
+            "training-file": str(model_dir / 'train.txt')
+        },
+    )
+    print('')
