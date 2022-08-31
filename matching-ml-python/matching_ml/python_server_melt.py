@@ -15,6 +15,8 @@ import re
 from datetime import datetime
 from collections import defaultdict
 
+from kbert.tokenizer.TMTokenizer import TMTokenizer
+
 logging.basicConfig(
     handlers=[
         logging.FileHandler(__file__ + ".log", "a+", "utf-8"),
@@ -1633,8 +1635,11 @@ def inner_transformers_finetuning(request_headers):
         training_arguments.pop("weight_of_positive_class", None)  # delete if existent
 
         from transformers import AutoTokenizer
-
-        tokenizer = AutoTokenizer.from_pretrained(initial_model_name)
+        if request_headers.get('tm', False):
+            tokenizer = TMTokenizer.from_pretrained(
+                initial_model_name, index_files=[get_index_file_path(training_file)])
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(initial_model_name)
 
         app.logger.info("Prepare transformers dataset and tokenize")
         data_left, data_right, labels = transformers_read_file(training_file, True)
