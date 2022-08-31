@@ -2,28 +2,8 @@ package de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers;
 
 import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.MatcherYAAAJena;
-import java.io.File;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractor;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractorMap;
-import java.io.BufferedWriter;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.Set;
-import java.util.StringJoiner;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -32,6 +12,12 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.apache.jena.rdf.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * This is a base class for all Transformers.
@@ -339,24 +325,21 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     public void setMultipleTextsToMultipleExamples(boolean multipleTextsToMultipleExamples) {
         this.multipleTextsToMultipleExamples = multipleTextsToMultipleExamples;
     }
-    
-    
-    protected Map<String, Set<String>> getTextualRepresentation(Resource r, Map<Resource,Map<String, Set<String>>> cache){
+
+    protected Map<String, Set<String>> getTextualRepresentation(Resource r, Map<Resource, Map<String, Set<String>>> cache) {
         Map<String, Set<String>> cacheResult = cache.get(r);
-        if(cacheResult != null)
-            return cacheResult;
-        Map<String, Set<String>> texts = new HashMap<>();
-        if(this.multipleTextsToMultipleExamples){
-            texts = this.extractor.extract(r);
-        }else{
+        if (cacheResult != null) return cacheResult;
+        Map<String, Set<String>> texts = this.extractor.extract(r);
+        if (!(this.multipleTextsToMultipleExamples || this.isTM())) {
+            String extractedText;
             StringBuilder sb = new StringBuilder();
-            for(Map.Entry<String, Set<String>> groupedText : this.extractor.extract(r).entrySet()){
-                for(String text : groupedText.getValue()){
+            for (Map.Entry<String, Set<String>> groupedText : texts.entrySet()) {
+                for (String text : groupedText.getValue()) {
                     sb.append(text.trim()).append(" ");
                 }
             }
-            String extractedText = sb.toString();
-            if(!StringUtils.isBlank(extractedText)){
+            extractedText = sb.toString();
+            if (!StringUtils.isBlank(extractedText)) {
                 texts.put("OneText", new HashSet<>(Arrays.asList(extractedText)));
             }
         }
