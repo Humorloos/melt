@@ -11,7 +11,7 @@ ROLE_RANKS = pd.Series({'s': 1, 'o': 0}, name='rank')
 class KBertSentenceTransformer(SentenceTransformer):
     def __init__(self, model_name_or_path, index_files=None, pooling_mode=None, **kwargs):
         super().__init__(model_name_or_path, **kwargs)
-        self.tokenizer = TMTokenizer.wrap(self.tokenizer, index_files)
+        self.tokenizer = TMTokenizer(self.tokenizer, index_files)
 
         transformer_module = self._first_module()
         self.max_seq_length = transformer_module.max_seq_length
