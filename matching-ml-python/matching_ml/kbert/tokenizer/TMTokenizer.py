@@ -4,9 +4,10 @@ import torch
 from pathlib import Path
 from transformers import AutoTokenizer
 from transformers import TensorType
-from transformers.tokenization_utils_base import TextInput, PreTokenizedInput, TruncationStrategy
+from transformers.tokenization_utils_base import TextInput, PreTokenizedInput, TruncationStrategy, BatchEncoding, \
+    EncodedInput
 from transformers.utils import PaddingStrategy
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Dict
 
 from kbert.tokenizer.utils import add_statement_texts, get_target_and_statement_token_ids, count_tokens, \
     fill_in_molecule_input_ids, molecules_from_texts, fill_in_molecule_position_ids, add_molecule_seeing_token_holes, \
@@ -325,16 +326,16 @@ class TMTokenizer:
                 [np.arange(1, n_target_tokens + 1) for n_target_tokens in n_target_tokens_by_molecule])
             targets_mask[z_molecule_4_targets_4_tokens, y_target_4_tokens, x_tokens] = 1
 
-        encoding = {
+        encoding_data = {
             'input_ids': torch.IntTensor(input_ids),
             'position_ids': torch.IntTensor(position_ids),
             'attention_mask': torch.IntTensor(attention_masks),
             'token_type_ids': torch.IntTensor(np.zeros(shape_molecules_by_max_seq_length)),
         }
         if text_pair is None:
-            encoding['targets_mask'] = torch.IntTensor(targets_mask)
+            encoding_data['targets_mask'] = torch.IntTensor(targets_mask)
 
-        return encoding
+        return BatchEncoding(data=encoding_data)
 
     def extend_index(self, index_file):
         index_extension = pd.read_csv(index_file, index_col=0, names=['text'])
@@ -374,3 +375,24 @@ class TMTokenizer:
         statements['statement_seeing'] = False
         statements['all_seeing'] = False
         return statements.rename_axis('molecule_id').sort_values(by=['molecule_id', 'r'])
+
+    def pad(
+            self,
+            encoded_inputs: Union[
+                BatchEncoding,
+                List[BatchEncoding],
+                Dict[str, EncodedInput],
+                Dict[str, List[EncodedInput]],
+                List[Dict[str, EncodedInput]],
+            ],
+            padding: Union[bool, str, PaddingStrategy] = True,
+            max_length: Optional[int] = None,
+            pad_to_multiple_of: Optional[int] = None,
+            return_attention_mask: Optional[bool] = None,
+            return_tensors: Optional[Union[str, TensorType]] = None,
+            verbose: bool = True
+    ):
+        return self.base_tokenizer.pad(encoded_inputs)
+
+    def save_pretrained(self, *args, **kwargs):
+        self.base_tokenizer.save_pretrained(*args, **kwargs)
