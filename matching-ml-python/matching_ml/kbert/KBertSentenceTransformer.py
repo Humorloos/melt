@@ -1,9 +1,9 @@
 import pandas as pd
 from sentence_transformers import SentenceTransformer
-from transformers import AlbertModel
 
-from kbert.monkeypatches import albert_forward, pooling_forward, transformer_forward, bert_get_extended_attention_mask
+from kbert.monkeypatches import pooling_forward, transformer_forward
 from kbert.tokenizer.TMTokenizer import TMTokenizer
+from kbert.utils import apply_tm_attention
 
 ROLE_RANKS = pd.Series({'s': 1, 'o': 0}, name='rank')
 
@@ -20,19 +20,7 @@ class KBertSentenceTransformer(SentenceTransformer):
         transformer_module.forward = lambda features: transformer_forward(transformer_module, features)
 
         bert_model = transformer_module.auto_model
-        bert_model.get_extended_attention_mask = \
-            lambda attention_mask, input_shape: bert_get_extended_attention_mask(bert_model, attention_mask,
-                                                                                 input_shape)
-        if isinstance(bert_model, AlbertModel):
-            bert_model.forward = \
-                lambda input_ids, attention_mask, token_type_ids, position_ids, return_dict: albert_forward(
-                    self=bert_model,
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    token_type_ids=token_type_ids,
-                    position_ids=position_ids,
-                    return_dict=return_dict
-                )
+        apply_tm_attention(bert_model)
 
         pooling_module = self._last_module()
         pooling_module.forward = lambda features: pooling_forward(pooling_module, features)
