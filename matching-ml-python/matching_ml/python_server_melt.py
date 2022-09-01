@@ -15,6 +15,7 @@ import re
 from datetime import datetime
 from collections import defaultdict
 
+from kbert.models.sequence_classification.tmt_for_sequence_classification import TMTForSequenceClassification
 from kbert.tokenizer.TMTokenizer import TMTokenizer
 
 logging.basicConfig(
@@ -1635,7 +1636,8 @@ def inner_transformers_finetuning(request_headers):
         training_arguments.pop("weight_of_positive_class", None)  # delete if existent
 
         from transformers import AutoTokenizer
-        if request_headers.get('tm', 'false').lower() == 'true':
+        is_tm_modification_enabled = request_headers.get('tm', 'false').lower() == 'true'
+        if is_tm_modification_enabled:
             tokenizer = TMTokenizer.from_pretrained(
                 initial_model_name, index_files=[get_index_file_path(training_file)])
         else:
@@ -1691,10 +1693,14 @@ def inner_transformers_finetuning(request_headers):
 
                 app.logger.info("Using pytorch. GPU used: " + str(torch.cuda.is_available()))
                 from transformers import Trainer, AutoModelForSequenceClassification
-
-                model = AutoModelForSequenceClassification.from_pretrained(
-                    initial_model_name, num_labels=2
-                )
+                if is_tm_modification_enabled:
+                    model = TMTForSequenceClassification.from_pretrained(
+                        initial_model_name, num_labels=2
+                    )
+                else:
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        initial_model_name, num_labels=2
+                    )
 
                 # tokenizer is added to the trainer because only in this case the tokenizer will be saved along the model to be reused.
                 trainer = Trainer(
