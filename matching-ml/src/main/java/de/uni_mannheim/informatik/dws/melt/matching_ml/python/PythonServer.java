@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.*;
-import de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.kbert.KBertSentenceTransformersMatcher;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Alignment;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Correspondence;
 import net.lingala.zip4j.ZipFile;
@@ -165,6 +164,15 @@ public class PythonServer {
         transformersUpdateBaseRequest(fineTuner, request);
         transformersFineTunerUpdateBaseRequest(fineTuner, trainingFile, request);
         runRequest(request);
+    }
+
+    public int tmMaxBatchSize(TransformersFineTuner fineTuner, File trainingFile) throws PythonServerException {
+        HttpGet request = new HttpGet(serverUrl + "/tm-find-max-batch-size");
+        transformersUpdateBaseRequest(fineTuner, request);
+        transformersFineTunerUpdateBaseRequest(fineTuner, trainingFile, request);
+        String resultString = runRequest(request);
+        LOGGER.info("Determined max batch size of {}", resultString);
+        return Integer.parseInt(resultString);
     }
 
     /**
