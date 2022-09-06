@@ -482,3 +482,138 @@ def add_molecule_holes(attention_masks, is_statement_in_input_by_molecule,
     ])
     attention_masks[z_molecule_4_tokens_4_tokens, y_tokens_4_tokens, x_tokens] = 1
     return n_tokens_by_target_by_molecule
+
+
+def get_single_line_molecule_representations(texts, tokenizer, max_length, texts_pair=None):
+    if max_length is None:
+        max_length = tokenizer.base_tokenizer.max_len_single_sentence
+    # get molecules
+    molecules = molecules_from_texts(texts)
+    # get targets
+    targets = tokenizer.targets_from_molecules(molecules)
+
+    # get statements
+    statements = tokenizer.statements_from_molecules(molecules)
+    count_tokens(molecules, statements, targets)
+
+    n_molecules = molecules.shape[0]
+
+    # do the same for pair molecules if there are any
+    if texts_pair is not None:
+        molecules_pair = molecules_from_texts(texts_pair)
+        targets_pair = tokenizer.targets_from_molecules(molecules_pair)
+        statements_pair = tokenizer.statements_from_molecules(molecules_pair)
+        count_tokens(molecules_pair, statements_pair, targets_pair)
+        # -2 because we have 1 CLS and 1 SEP token
+        max_example_length = max_length - 2
+        max_molecule_length = max_example_length // 2
+        greater_max_length_by_molecule_pair = molecules_pair['n_tokens'].values > max_molecule_length
+        # max input ids for first input depend on whether second input is longer than half of the remaining input:
+        # - if it is not longer, max input ids are what is left after filling in whole second input
+        # - if it is longer, max input ids further depend on length of first input:
+        #   - if it is longer than half of whole input, max input ids are half of the whole input
+        #   - otherwise, they are same as input 1 length
+        max_length_by_molecule = np.where(
+            greater_max_length_by_molecule_pair,
+            np.minimum(max_molecule_length, molecules['n_tokens'].values.astype(int)),
+            max_example_length - molecules_pair['n_tokens'].values.astype(int)
+        )
+        max_length_by_molecule_pair = max_example_length - max_length_by_molecule
+    else:
+        # -1 because of CLS token
+        max_length_by_molecule = np.repeat(max_length - 1, n_molecules)
+
+    max_targets_by_molecule = molecules['n_targets'].max()
+
+    target_offset_by_molecule = np.repeat(1, n_molecules)
+    input_ids_by_target_by_molecule, \
+    input_ids_by_statement_by_role_by_molecule, \
+    is_statement_in_input_by_molecule, \
+    fits_token_in_input_by_statement_by_molecule, \
+    fits_token_in_input_by_statement_by_role_by_molecule, \
+    fits_token_in_input_by_target_by_molecule, \
+    max_tokens_by_molecule, \
+    offset_token_by_target_by_molecule, \
+    shape_token_by_statement_by_molecule, \
+    shape_token_by_statement_by_role_by_molecule = get_target_and_statement_token_ids(
+        molecules=molecules,
+        statements=statements,
+        targets=targets,
+        max_length_by_molecule=max_length_by_molecule,
+        n_molecules=n_molecules,
+        target_offset_by_molecule=target_offset_by_molecule,
+        max_targets_by_molecule=max_targets_by_molecule
+    )
+    statement_offset_by_molecule = offset_token_by_target_by_molecule.max(axis=(1, 2)) + 1
+
+    if texts_pair is not None:
+        max_targets_by_molecule_pair = molecules_pair['n_targets'].max()
+        target_offset_by_molecule_pair = statement_offset_by_molecule + \
+                                         fits_token_in_input_by_statement_by_molecule.sum((1, 2)) + 1
+
+        input_ids_by_target_by_molecule_pair, \
+        input_ids_by_statement_by_role_by_molecule_pair, \
+        is_statement_in_input_by_molecule_pair, \
+        fits_token_in_input_by_statement_by_molecule_pair, \
+        fits_token_in_input_by_statement_by_role_by_molecule_pair, \
+        fits_token_in_input_by_target_by_molecule_pair, \
+        max_tokens_by_molecule_pair, \
+        offset_token_by_target_by_molecule_pair, \
+        shape_token_by_statement_by_molecule_pair, \
+        shape_token_by_statement_by_role_by_molecule_pair = get_target_and_statement_token_ids(
+            molecules=molecules_pair,
+            statements=statements_pair,
+            targets=targets_pair,
+            max_length_by_molecule=max_length_by_molecule_pair,
+            n_molecules=n_molecules,
+            target_offset_by_molecule=target_offset_by_molecule_pair,
+            max_targets_by_molecule=max_targets_by_molecule_pair
+        )
+        statement_offset_by_molecule_pair = offset_token_by_target_by_molecule_pair.max(axis=(1, 2)) + 1
+
+    representations = text_representations_from_ids(
+        input_ids_by_statement_by_role_by_molecule,
+        input_ids_by_target_by_molecule,
+        molecules,
+        tokenizer)
+    if texts_pair is not None:
+        representations_pair = text_representations_from_ids(
+            input_ids_by_statement_by_role_by_molecule_pair,
+            input_ids_by_target_by_molecule_pair,
+            molecules_pair,
+            tokenizer)
+        return representations, representations_pair
+
+    return representations
+
+
+def text_representations_from_ids(input_ids_by_statement_by_role_by_molecule, input_ids_by_target_by_molecule,
+                                  molecules, tokenizer):
+    molecules['object_statement_text'] = [
+        ' | '.join(tokenizer.base_tokenizer.batch_decode([
+            input_ids[input_ids != -1]
+            for input_ids in input_ids_by_object_statement
+            if np.any(input_ids != -1)
+        ]))
+        for input_ids_by_object_statement in input_ids_by_statement_by_role_by_molecule[:, 0, :, :]
+    ]
+    molecules['subject_statement_text'] = [
+        ' | '.join(tokenizer.base_tokenizer.batch_decode([
+            input_ids[input_ids != -1]
+            for input_ids in input_ids_by_subject_statement
+            if np.any(input_ids != -1)
+        ]))
+        for input_ids_by_subject_statement in input_ids_by_statement_by_role_by_molecule[:, 1, :, :]
+    ]
+    molecules['target_text'] = [
+        ' | '.join(tokenizer.base_tokenizer.batch_decode([
+            input_ids[input_ids != -1]
+            for input_ids in input_ids_by_target
+            if np.any(input_ids != -1)
+        ]))
+        for input_ids_by_target in input_ids_by_target_by_molecule
+    ]
+    molecules['target_text'] = (' <' + molecules['target_text'].str.upper() + '> ')
+    representations = molecules['subject_statement_text'] + molecules['target_text'] + molecules[
+        'object_statement_text']
+    return representations
