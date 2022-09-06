@@ -4,6 +4,7 @@ import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.MatcherYAAAJena;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractor;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractorMap;
+import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextExtractorKbert;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -464,6 +466,19 @@ public abstract class TransformersBase extends MatcherYAAAJena {
             }
         }
         return i >= numberOfExamples;
+    }
+
+
+    protected void printIndexIfNeeded(File outputFile, Map<Resource, Map<String, Set<String>>> cache) throws IOException {
+        if (this.tm) {
+            File indexOutputFile = new File(outputFile.getParentFile(), "index_" + outputFile.getName());
+            Files.createDirectories(indexOutputFile.getParentFile().toPath());
+            try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
+                ((TextExtractorKbert) this.simpleExtractor)
+                        .getIndexStream(cache.keySet().iterator())
+                        .forEach(printWriter::println);
+            }
+        }
     }
 }
 

@@ -166,15 +166,8 @@ public abstract class TransformersBaseFineTuner extends TransformersBase {
             }
         }
         // for tm modification, write index file
-        if (this.tm) {
-            File indexOutputFile = new File(trainFile.getParentFile(), "index_" + trainFile.getName());
-            Files.createDirectories(indexOutputFile.getParentFile().toPath());
-            try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
-                ((TextExtractorKbert) this.simpleExtractor)
-                        .getIndexStream(cache.keySet().iterator())
-                        .forEach(printWriter::println);
-            }
-        }
+        printIndexIfNeeded(trainFile, cache);
+
         LOGGER.info("Wrote {} positive and {} negative training EXAMPLES. "
                         + "The ALIGNMENT contains {} correspondences ({} positive, {} negative, {} other relations - not used). "
                         + "{} correspondences are not used due to insufficient textual data.", positiveExamples, negativeExamples,
