@@ -55,7 +55,7 @@ class TMTokenizer:
         position_ids = []
         attention_masks = []
         targets_mask = []
-        for batch_idx in range((len(text) // 64) + 1):
+        for batch_idx in range(((len(text) - 1) // 64) + 1):
             batch_text = text[batch_idx * 64:(batch_idx + 1) * 64]
             # get molecules
             molecules = molecules_from_texts(batch_text)
@@ -173,8 +173,8 @@ class TMTokenizer:
             if text_pair is not None:
                 # fill in SEP token ids
                 sep_token_offset_by_molecule = target_offset_by_molecule_pair - 1
-                sep_tokens_y = np.arange(n_molecules)
-                input_ids_batch[sep_tokens_y, sep_token_offset_by_molecule] = self.base_tokenizer.sep_token_id
+                molecule_range = np.arange(n_molecules)
+                input_ids_batch[molecule_range, sep_token_offset_by_molecule] = self.base_tokenizer.sep_token_id
 
                 # fill in input ids of second molecule
                 n_statement_tokens_by_molecule_pair, \
@@ -211,7 +211,7 @@ class TMTokenizer:
             if text_pair is not None:
                 # fill in position ids of sep tokens
                 position_offset_sep_token_by_molecule = position_ids_batch.max(1) + 1
-                position_ids_batch[sep_tokens_y, sep_token_offset_by_molecule] = position_offset_sep_token_by_molecule
+                position_ids_batch[molecule_range, sep_token_offset_by_molecule] = position_offset_sep_token_by_molecule
                 position_offset_first_token_by_molecule_pair = position_offset_sep_token_by_molecule + 1
 
                 fill_in_molecule_position_ids(
@@ -262,10 +262,10 @@ class TMTokenizer:
                         token_offset_by_molecule=sep_token_offset_by_molecule
                     )
                 # sep tokens can see themselves
-                attention_masks_batch[:, sep_token_offset_by_molecule, sep_token_offset_by_molecule] = 1
+                attention_masks_batch[molecule_range, sep_token_offset_by_molecule, sep_token_offset_by_molecule] = 1
                 # sep and cls tokens can see each other
-                attention_masks_batch[:, sep_token_offset_by_molecule, 0] = 1
-                attention_masks_batch[:, 0, sep_token_offset_by_molecule] = 1
+                attention_masks_batch[molecule_range, sep_token_offset_by_molecule, 0] = 1
+                attention_masks_batch[molecule_range, 0, sep_token_offset_by_molecule] = 1
 
             n_tokens_by_target_by_molecule = add_molecule_holes(
                 attention_masks_batch,
