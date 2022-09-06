@@ -1,22 +1,26 @@
+from collections import defaultdict
+
+import csv
+import json
+import logging
+import numpy as np
+import os
+import pathlib
+import pkg_resources
+import re
+import sys
+import tempfile
+from datetime import datetime
 from flask import Flask, request, jsonify
 from gensim import corpora, models, similarities, matutils
 from scipy import linalg
 from scipy.special import softmax
-import csv
-import json
-import numpy as np
-import logging
-import os
-import sys
-import pkg_resources
-import pathlib
-import tempfile
-import re
-from datetime import datetime
-from collections import defaultdict
 
+from kbert.models.sequence_classification.find_max_batch_size import find_max_batch_size
 from kbert.models.sequence_classification.tmt_for_sequence_classification import TMTForSequenceClassification
 from kbert.tokenizer.TMTokenizer import TMTokenizer
+from utils import transformers_init, get_index_file_path, transformers_read_file, transformers_create_dataset, \
+    transformers_get_training_arguments
 
 logging.basicConfig(
     handlers=[
@@ -1361,120 +1365,6 @@ def run_openea():
 ############################################
 
 
-def transformers_create_dataset(
-        using_tensorflow, tokenizer, left_sentences, right_sentences, labels=None
-):
-    tensor_type = "tf" if using_tensorflow else "pt"
-    # padding (padding=True) is not applied here because the tokenizer is given to the trainer
-    # which does the padding for each batch (more efficient)
-    encodings = tokenizer(
-        left_sentences,
-        right_sentences,
-        return_tensors=tensor_type,
-        padding=True,
-        truncation="longest_first",
-    )
-
-    if using_tensorflow:
-        import tensorflow as tf
-
-        if labels:
-            return tf.data.Dataset.from_tensor_slices((dict(encodings), labels))
-        else:
-            return tf.data.Dataset.from_tensor_slices(dict(encodings))
-    else:
-        import torch
-
-        if labels:
-
-            class MyDatasetWithLabels(torch.utils.data.Dataset):
-                def __init__(self, encodings, labels):
-                    self.encodings = encodings
-                    self.labels = labels
-
-                def __getitem__(self, idx):
-                    item = {
-                        key: val[idx].detach().clone()
-                        for key, val in self.encodings.items()
-                    }
-                    item["labels"] = torch.tensor(self.labels[idx])
-                    return item
-
-                def __len__(self):
-                    return len(self.labels)
-
-            return MyDatasetWithLabels(encodings, labels)
-        else:
-
-            class MyDataset(torch.utils.data.Dataset):
-                def __init__(self, encodings):
-                    self.encodings = encodings
-
-                def __getitem__(self, idx):
-                    item = {
-                        key: val[idx].detach().clone()
-                        for key, val in self.encodings.items()
-                    }
-                    return item
-
-                def __len__(self):
-                    return len(self.encodings.input_ids)
-
-            return MyDataset(encodings)
-
-
-def transformers_read_file(file_path, with_labels):
-    data_left = []
-    data_right = []
-    labels = []
-    with open(file_path, encoding="utf-8") as csvfile:
-        readCSV = csv.reader(csvfile, delimiter=",")
-        for row in readCSV:
-            data_left.append(row[0])
-            data_right.append(row[1])
-            if with_labels:
-                labels.append(int(row[2]))
-    return data_left, data_right, labels
-
-
-def transformers_get_training_arguments(
-        using_tensorflow, initial_parameters, user_parameters, melt_parameters
-):
-    import dataclasses
-
-    if using_tensorflow:
-        from transformers import TFTrainingArguments
-
-        allowed_arguments = set(
-            [field.name for field in dataclasses.fields(TFTrainingArguments)]
-        )
-    else:
-        from transformers import TrainingArguments
-
-        allowed_arguments = set(
-            [field.name for field in dataclasses.fields(TrainingArguments)]
-        )
-
-    training_arguments = dict(initial_parameters)
-    training_arguments.update(user_parameters)
-    training_arguments.update(melt_parameters)
-
-    not_available = training_arguments.keys() - allowed_arguments
-    if len(not_available) > 0:
-        app.logger.warning(
-            "The following attributes are not set as training arguments because "
-            + "they do not exist in the currently installed version of transformer: "
-            + str(not_available)
-        )
-        for key_not_avail in not_available:
-            del training_arguments[key_not_avail]
-    if using_tensorflow:
-        training_args = TFTrainingArguments(**training_arguments)
-    else:
-        training_args = TrainingArguments(**training_arguments)
-    return training_args
-
-
 def transformers_search_folder_with_highest_count(root_folder, count_regex):
     highest_step = 0
     highest_step_folder = ""
@@ -1489,14 +1379,6 @@ def transformers_search_folder_with_highest_count(root_folder, count_regex):
                     highest_step = checkpoint_step
                     highest_step_folder = item_path
     return highest_step_folder
-
-
-def transformers_init(request_headers):
-    if "cuda-visible-devices" in request_headers:
-        os.environ["CUDA_VISIBLE_DEVICES"] = request_headers["cuda-visible-devices"]
-
-    if "transformers-cache" in request_headers:
-        os.environ["TRANSFORMERS_CACHE"] = request_headers["transformers-cache"]
 
 
 # needs to be at the top level because only top level function can be pickled
@@ -1543,8 +1425,13 @@ def inner_transformers_prediction(request_headers):
         training_arguments = json.loads(request_headers["training-arguments"])
 
         from transformers import AutoTokenizer
+        is_tm_modification_enabled = request_headers.get('tm', 'false').lower() == 'true'
+        if is_tm_modification_enabled:
+            index_file_path = training_arguments.get('index_file', get_index_file_path(prediction_file_path))
+            tokenizer = TMTokenizer.from_pretrained(model_name, index_files=[index_file_path])
 
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         app.logger.info("Prepare transformers dataset and tokenize")
         data_left, data_right, _ = transformers_read_file(prediction_file_path, False)
@@ -1588,10 +1475,14 @@ def inner_transformers_prediction(request_headers):
 
                 app.logger.info("Is gpu used: " + str(torch.cuda.is_available()))
                 from transformers import Trainer, AutoModelForSequenceClassification
-
-                model = AutoModelForSequenceClassification.from_pretrained(
-                    model_name, num_labels=2
-                )
+                if is_tm_modification_enabled:
+                    model = TMTForSequenceClassification.from_pretrained(
+                        model_name, num_labels=2
+                    )
+                else:
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        model_name, num_labels=2
+                    )
 
                 trainer = Trainer(model=model, tokenizer=tokenizer, args=training_args)
 
@@ -1638,8 +1529,9 @@ def inner_transformers_finetuning(request_headers):
         from transformers import AutoTokenizer
         is_tm_modification_enabled = request_headers.get('tm', 'false').lower() == 'true'
         if is_tm_modification_enabled:
+            index_file_path = training_arguments.get('index_file', get_index_file_path(training_file))
             tokenizer = TMTokenizer.from_pretrained(
-                initial_model_name, index_files=[get_index_file_path(training_file)])
+                initial_model_name, index_files=[index_file_path])
         else:
             tokenizer = AutoTokenizer.from_pretrained(initial_model_name)
 
@@ -1648,6 +1540,7 @@ def inner_transformers_finetuning(request_headers):
         assert len(data_left) == len(data_right) == len(labels)
         training_dataset = transformers_create_dataset(
             using_tensorflow, tokenizer, data_left, data_right, labels
+            # using_tensorflow, tokenizer, data_left[:128], data_right[:128], labels[:128]
         )
         app.logger.info(
             "Transformers dataset contains %s examples.", len(training_dataset)
@@ -1667,6 +1560,7 @@ def inner_transformers_finetuning(request_headers):
             training_args = transformers_get_training_arguments(
                 using_tensorflow, initial_arguments, training_arguments, fixed_arguments
             )
+            app.logger.info(f'Batch size: {training_args.per_device_train_batch_size}')
 
             app.logger.info("Loading transformers model")
             if using_tensorflow:
@@ -2061,11 +1955,6 @@ def transformers_finetuning_hp_search():
         return "ERROR " + traceback.format_exc()
 
 
-def get_index_file_path(corpus_file_path):
-    my_path = pathlib.Path(corpus_file_path)
-    return my_path.parent / f'index_{my_path.name}'
-
-
 def inner_sentencetransformers_prediction(request_headers):
     try:
         transformers_init(request_headers)
@@ -2376,6 +2265,11 @@ def main():
         logging.error(e)
     logging.info(f"Starting server using port {port}")
     app.run(debug=False, port=port, threaded=False)
+
+
+@app.route('/tm-find-max-batch-size', methods=['GET'])
+def tm_find_max_batch_size():
+    return find_max_batch_size(app, request.headers)
 
 
 if __name__ == "__main__":
