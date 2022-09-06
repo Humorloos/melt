@@ -1,14 +1,16 @@
 # This unit test checks the python_server.py
 # Run `pytest` in the root directory of the jRDF2vec project (where the pom.xml resides).
 
-from pathlib import Path
-
 import pytest
 import requests
+from pathlib import Path
+from scipy.special import softmax
+from transformers import AutoModelForSequenceClassification, Trainer, AutoTokenizer
 
 from kbert.constants import RESOURCES_DIR, URI_PREFIX
 from kbert.test.ServerThread import ServerThread
 from python_server_melt import app as my_app
+from utils import transformers_init, transformers_read_file, transformers_create_dataset
 
 
 @pytest.fixture
@@ -131,19 +133,19 @@ def test_sentence_transformers_prediction(client):
 
 
 def test_transformers_finetuning_tm(client):
-    # def test_sentence_transformers_prediction_kbert():
-    model_dir = RESOURCES_DIR / 'kbert' / 'raw' / 'all_targets' / 'isMulti_true'
+    model_dir = RESOURCES_DIR / 'kbert' / 'normalized' / 'all_targets' / 'isMulti_true'
     response = client.get(
         "/transformers-finetuning",
         headers={
             "model-name": "albert-base-v2",
             "using-tf": "false",
-            "training-arguments": "{}",
+            "training-arguments": "{\"per_device_train_batch_size\": 32}",
             "tmp-dir": str(RESOURCES_DIR),
             "tm": "true",
             "multi-processing": "spawn",
             "resulting-model-location": str(model_dir / 'trained_model'),
-            "training-file": str(model_dir / 'train.csv')
+            "training-file": str(model_dir / 'train.csv'),
+            "cuda-visible-devices": '4'
         },
     )
     print('')
@@ -162,7 +164,83 @@ def test_transformers_finetuning(client):
             "tm": "false",
             "multi-processing": "spawn",
             "resulting-model-location": str(model_dir / 'trained_model'),
-            "training-file": str(model_dir / 'train.txt')
+            "training-file": str(model_dir / 'train.txt'),
+            "cuda-visible-devices": '4'
+        },
+    )
+    print('')
+
+
+def test_transformers_predict(client):
+    model_dir = RESOURCES_DIR / 'original'
+
+    response = client.get('/transformers-prediction', headers={
+        'model-name': str(model_dir / 'trained_model'),
+        'using-tf': 'false',
+        'training-arguments': '{}',
+        'tmp-dir': str(RESOURCES_DIR),
+        'multi-processing': 'spawn',
+        'tm': 'false',
+        'prediction-file-path': str(model_dir / 'predict.txt'),
+        'change-class': 'false'})
+    print('')
+
+
+def test_evaluate(client):
+    transformers_init({
+        "cuda-visible-devices": '2,4'
+    })
+    # def test_sentence_transformers_prediction_kbert():
+    model_dir = RESOURCES_DIR / 'original'
+    model = AutoModelForSequenceClassification.from_pretrained(str(model_dir / 'trained_model'), num_labels=2)
+    tokenizer = AutoTokenizer.from_pretrained(str(model_dir / 'trained_model'))
+    data_left, data_right, labels = transformers_read_file(str(model_dir / 'predict.txt'), True)
+    dataset = transformers_create_dataset(
+        # False, tokenizer, data_left[:50], data_right[:50], labels[:50]
+        False, tokenizer, data_left, data_right, labels
+    )
+    trainer = Trainer(
+        model=model,
+        tokenizer=tokenizer,
+    )
+    asdf = trainer.predict(dataset)
+    scores = softmax(asdf.predictions, axis=1)[:, 0]
+
+    print('')
+
+
+def test_transformers_finetuning_tm_profile(client):
+    model_dir = RESOURCES_DIR / 'kbert' / 'normalized' / 'all_targets' / 'isMulti_true'
+    response = client.get(
+        "/transformers-finetuning",
+        headers={
+            "model-name": "albert-base-v2",
+            "using-tf": "false",
+            "training-arguments": "{"
+                                  "\"per_device_train_batch_size\": 41, "
+                                  "\"max_steps\": 1, "
+                                  "\"save_at_end\": \"false\""
+                                  "}",
+            "tmp-dir": str(RESOURCES_DIR),
+            "tm": "true",
+            "multi-processing": "spawn",
+            "resulting-model-location": str(model_dir / 'trained_model'),
+            "training-file": str(model_dir / 'train.csv'),
+            "cuda-visible-devices": '4'
+        },
+    )
+    print('')
+
+
+def test_find_max_batch_size(client):
+    model_dir = RESOURCES_DIR / 'kbert' / 'normalized' / 'all_targets' / 'isMulti_true'
+    response = client.get(
+        '/tm-find-max-batch-size',
+        headers={
+            "model-name": "albert-base-v2",
+            "tmp-dir": str(RESOURCES_DIR),
+            "training-file": str(model_dir / 'train.csv'),
+            "cuda-visible-devices": '4'
         },
     )
     print('')
