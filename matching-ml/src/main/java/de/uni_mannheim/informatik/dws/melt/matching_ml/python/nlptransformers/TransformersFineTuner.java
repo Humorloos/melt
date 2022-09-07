@@ -105,7 +105,9 @@ public class TransformersFineTuner extends TransformersBaseFineTuner implements 
     public int getMaximumPerDeviceTrainBatchSize (File trainingFile){
         if (this.isTM()) {
             try {
-                return PythonServer.getInstance().tmMaxBatchSize(this, trainingFile);
+                int maxBatchSize = PythonServer.getInstance().tmMaxBatchSize(this, trainingFile);
+                PythonServer.shutDown();
+                return maxBatchSize;
             } catch (PythonServerException e) {
                 throw new RuntimeException(e);
             }
