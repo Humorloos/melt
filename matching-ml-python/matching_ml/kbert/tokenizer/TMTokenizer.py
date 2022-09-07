@@ -16,11 +16,15 @@ from kbert.tokenizer.utils import add_statement_texts, get_target_and_statement_
 
 class TMTokenizer:
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, index_files: List[Path] = None, *inputs, **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path, index_files: List[Path] = None, max_length=None, *inputs,
+                        **kwargs):
         tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
-        return TMTokenizer(tokenizer, index_files)
+        return TMTokenizer(tokenizer, index_files, max_length)
 
-    def __init__(self, tokenizer, index_files: List[Path] = None):
+    def __init__(self, tokenizer, index_files: List[Path] = None, max_length=None):
+        if max_length is not None:
+            tokenizer.model_max_length = max_length
+
         self.base_tokenizer = tokenizer
 
         self.token_index = pd.DataFrame(columns=['text', 'tokens', 'n_tokens'])
@@ -50,7 +54,7 @@ class TMTokenizer:
             **kwargs
     ):
         if max_length is None:
-            max_length = self.base_tokenizer.max_len_single_sentence
+            max_length = self.base_tokenizer.model_max_length
         input_ids = []
         position_ids = []
         attention_masks = []

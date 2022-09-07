@@ -1428,7 +1428,8 @@ def inner_transformers_prediction(request_headers):
         is_tm_modification_enabled = request_headers.get('tm', 'false').lower() == 'true'
         if is_tm_modification_enabled:
             index_file_path = training_arguments.get('index_file', get_index_file_path(prediction_file_path))
-            tokenizer = TMTokenizer.from_pretrained(model_name, index_files=[index_file_path])
+            tokenizer = TMTokenizer.from_pretrained(model_name, index_files=[index_file_path],
+                                                    max_length=int(request_headers['max-length']))
 
         else:
             tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -1531,7 +1532,8 @@ def inner_transformers_finetuning(request_headers):
         if is_tm_modification_enabled:
             index_file_path = training_arguments.get('index_file', get_index_file_path(training_file))
             tokenizer = TMTokenizer.from_pretrained(
-                initial_model_name, index_files=[index_file_path])
+                initial_model_name, index_files=[index_file_path], max_length=int(request_headers['max-length'])
+            )
         else:
             tokenizer = AutoTokenizer.from_pretrained(initial_model_name)
 
