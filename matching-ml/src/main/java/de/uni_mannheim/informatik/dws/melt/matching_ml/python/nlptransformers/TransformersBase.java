@@ -42,6 +42,16 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     protected boolean multipleTextsToMultipleExamples;
     protected boolean tm;
 
+    public Integer getMaxLength() {
+        return maxLength;
+    }
+
+    public void setMaxLength(Integer maxLength) {
+        this.maxLength = maxLength;
+    }
+
+    protected Integer maxLength;
+
     /**
      * Constructor with all required parameters.
      * @param extractor the extractor to select which text for each resource should be used.
@@ -63,6 +73,7 @@ public abstract class TransformersBase extends MatcherYAAAJena {
         this.multiProcessing = TransformersMultiProcessing.SPAWN;
         this.multipleTextsToMultipleExamples = false;
         this.tm = false;
+        this.maxLength = null;
     }
     
     /**
