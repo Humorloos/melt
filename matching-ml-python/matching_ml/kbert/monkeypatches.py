@@ -16,6 +16,9 @@ def albert_forward(
         output_hidden_states: Optional[None] = None,
         return_dict: Optional[None] = None,
 ) -> Union[BaseModelOutputWithPooling, Tuple]:
+    # =========================================== Modification Start ===================================================
+    torch.cuda.empty_cache()
+    # =========================================== Modification End =====================================================
     output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
     output_hidden_states = (
         output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
