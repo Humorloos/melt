@@ -41,6 +41,16 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     protected TransformersMultiProcessing multiProcessing;
     protected boolean multipleTextsToMultipleExamples;
     protected boolean tm;
+    protected boolean tmAttention;
+
+    public boolean isTmAttention() {
+        return tmAttention;
+    }
+
+    public void setTmAttention(boolean tmAttention) {
+        this.tmAttention = tmAttention;
+    }
+
 
     public Integer getMaxLength() {
         return maxLength;
@@ -73,7 +83,8 @@ public abstract class TransformersBase extends MatcherYAAAJena {
         this.multiProcessing = TransformersMultiProcessing.SPAWN;
         this.multipleTextsToMultipleExamples = false;
         this.tm = false;
-        this.maxLength = null;
+        this.maxLength = 0;
+        this.tmAttention = true;
     }
     
     /**

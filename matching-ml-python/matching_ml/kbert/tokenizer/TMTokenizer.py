@@ -16,18 +16,18 @@ from kbert.tokenizer.utils import add_statement_texts, get_target_and_statement_
 
 class TMTokenizer:
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, index_files: List[Path] = None, max_length=None, *inputs,
-                        **kwargs):
+    def from_pretrained(cls, pretrained_model_name_or_path, index_files: List[Path] = None, max_length=None,
+                        tm_attention=True, *inputs, **kwargs):
         tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
-        return TMTokenizer(tokenizer, index_files, max_length)
+        return TMTokenizer(tokenizer, index_files, max_length, tm_attention)
 
-    def __init__(self, tokenizer, index_files: List[Path] = None, max_length=None):
+    def __init__(self, tokenizer, index_files: List[Path] = None, max_length=None, tm_attention=True):
         if max_length is not None:
             tokenizer.model_max_length = max_length
 
         self.base_tokenizer = tokenizer
-
         self.token_index = pd.DataFrame(columns=['text', 'tokens', 'n_tokens'])
+        self.tm_attention = tm_attention
         if index_files is not None:
             for f in index_files:
                 self.extend_index(f)
@@ -57,7 +57,8 @@ class TMTokenizer:
             max_length = self.base_tokenizer.model_max_length
         input_ids = []
         position_ids = []
-        attention_masks = []
+        if self.tm_attention:
+            attention_masks = []
         targets_mask = []
         for batch_idx in range(((len(text) - 1) // 64) + 1):
             batch_text = text[batch_idx * 64:(batch_idx + 1) * 64]
@@ -227,107 +228,44 @@ class TMTokenizer:
                     y_molecule_4_target_tokens=y_molecule_4_target_tokens_pair,
                     position_offset_first_token_by_molecule=position_offset_first_token_by_molecule_pair
                 )
-
-            # initialize attention masks
-            attention_masks_batch = np.zeros((n_molecules, *2 * [max_length]), dtype=int)
-
-            # Add holes for cls token
-            seq_length_by_molecule = add_molecule_seeing_token_holes(
-                attention_masks_batch,
-                offset_token_by_statement_by_role_by_molecule,
-                offset_token_by_target_by_molecule,
-                target_offset_by_molecule,
-                token_offset_by_molecule=cls_token_offset_by_molecule
-            )
-            # cls tokens can see themselves
-            attention_masks_batch[:, 0, 0] = 1
-
-            if text_pair is not None:
-                # add holes for cls token for second molecules
-                seq_length_by_molecule_pair = add_molecule_seeing_token_holes(
-                    attention_masks_batch,
-                    offset_token_by_statement_by_role_by_molecule_pair,
-                    offset_token_by_target_by_molecule_pair,
-                    target_offset_by_molecule_pair,
-                    token_offset_by_molecule=cls_token_offset_by_molecule
-                )
-                # add holes for sep token
-                for inputs in [
-                    (offset_token_by_statement_by_role_by_molecule,
-                     offset_token_by_target_by_molecule,
-                     target_offset_by_molecule),
-                    (offset_token_by_statement_by_role_by_molecule_pair,
-                     offset_token_by_target_by_molecule_pair,
-                     target_offset_by_molecule_pair)
-                ]:
-                    _ = add_molecule_seeing_token_holes(
-                        attention_masks_batch,
-                        *inputs,
-                        token_offset_by_molecule=sep_token_offset_by_molecule
-                    )
-                # sep tokens can see themselves
-                attention_masks_batch[molecule_range, sep_token_offset_by_molecule, sep_token_offset_by_molecule] = 1
-                # sep and cls tokens can see each other
-                attention_masks_batch[molecule_range, sep_token_offset_by_molecule, 0] = 1
-                attention_masks_batch[molecule_range, 0, sep_token_offset_by_molecule] = 1
-
-            n_tokens_by_target_by_molecule = add_molecule_holes(
-                attention_masks_batch,
-                is_statement_in_input_by_molecule,
-                fits_token_in_input_by_statement_by_molecule,
-                fits_token_in_input_by_target_by_molecule,
-                max_length_by_molecule,
-                n_statement_tokens_by_molecule,
-                n_target_tokens_by_molecule,
-                offset_token_by_statement_by_role_by_molecule,
-                offset_token_by_target_by_molecule,
-                seq_length_by_molecule,
-                shape_token_by_statement_by_molecule,
-                target_offset_by_molecule,
-                statement_offset_by_molecule
-            )
-
-            if text_pair is not None:
-                # add holes for targets and statements of molecule pairs
-                n_tokens_by_target_by_molecule_pair = add_molecule_holes(
-                    attention_masks_batch,
-                    is_statement_in_input_by_molecule_pair,
+            if self.tm_attention:
+                # initialize attention masks
+                attention_masks_batch = self.get_attention_masks(
+                    cls_token_offset_by_molecule,
+                    fits_token_in_input_by_statement_by_molecule,
                     fits_token_in_input_by_statement_by_molecule_pair,
+                    fits_token_in_input_by_target_by_molecule,
                     fits_token_in_input_by_target_by_molecule_pair,
+                    is_statement_in_input_by_molecule,
+                    is_statement_in_input_by_molecule_pair,
+                    max_length,
+                    max_length_by_molecule,
                     max_length_by_molecule_pair,
+                    molecule_range,
+                    n_molecules,
+                    n_statement_tokens_by_molecule,
                     n_statement_tokens_by_molecule_pair,
+                    n_target_tokens_by_molecule,
                     n_target_tokens_by_molecule_pair,
+                    offset_token_by_statement_by_role_by_molecule,
                     offset_token_by_statement_by_role_by_molecule_pair,
+                    offset_token_by_target_by_molecule,
                     offset_token_by_target_by_molecule_pair,
-                    seq_length_by_molecule_pair,
+                    sep_token_offset_by_molecule,
+                    shape_token_by_statement_by_molecule,
                     shape_token_by_statement_by_molecule_pair,
+                    statement_offset_by_molecule,
+                    statement_offset_by_molecule_pair,
+                    target_offset_by_molecule,
                     target_offset_by_molecule_pair,
-                    statement_offset_by_molecule_pair
-                )
-                # add holes between molecules for targets (targets from molecules and targets from molecule pairs can see
-                # each other)
-                product_target_tokens_by_molecule = n_target_tokens_by_molecule * n_target_tokens_by_molecule_pair
-                z_molecule_4_tokens_4_tokens = np.concatenate([np.repeat(i, product_target_tokens)
-                                                               for i, product_target_tokens
-                                                               in enumerate(product_target_tokens_by_molecule)])
-                y_token_4_tokens = np.concatenate([
-                    np.repeat(np.arange(target_offset_pair, n_target_tokens_pair + target_offset_pair), n_target_tokens)
-                    for target_offset_pair, n_target_tokens_pair, n_target_tokens
-                    in zip(target_offset_by_molecule_pair, n_target_tokens_by_molecule_pair, n_target_tokens_by_molecule)
-                ])
-                x_tokens = np.concatenate([
-                    np.tile(np.arange(1, n_target_tokens + 1), n_target_tokens_pair)
-                    for n_target_tokens_pair, n_target_tokens
-                    in zip(n_target_tokens_by_molecule_pair, n_target_tokens_by_molecule)
-                ])
-                attention_masks_batch[z_molecule_4_tokens_4_tokens, y_token_4_tokens, x_tokens] = 1
-                attention_masks_batch[z_molecule_4_tokens_4_tokens, x_tokens, y_token_4_tokens] = 1
-            else:
+                    text_pair)
+            if text_pair is None:
                 # compute targets mask
                 targets_mask_batch = np.zeros((n_molecules, max_targets_by_molecule, max_length))
                 z_molecule_4_targets_4_tokens = np.concatenate([
                     np.repeat(i, n_target_tokens) for i, n_target_tokens in enumerate(n_target_tokens_by_molecule)
                 ])
+                n_tokens_by_target_by_molecule = fits_token_in_input_by_target_by_molecule.sum(2)
                 y_target_4_tokens = np.concatenate([
                     np.repeat(i, n_tokens)
                     for n_tokens_by_target in n_tokens_by_target_by_molecule
@@ -339,18 +277,127 @@ class TMTokenizer:
                 targets_mask.append(targets_mask_batch)
             input_ids.append(input_ids_batch)
             position_ids.append(position_ids_batch)
-            attention_masks.append(attention_masks_batch)
+            if self.tm_attention:
+                attention_masks.append(attention_masks_batch)
 
         encoding_data = {
             'input_ids': torch.IntTensor(np.concatenate(input_ids)),
             'position_ids': torch.IntTensor(np.concatenate(position_ids)),
-            'attention_mask': torch.IntTensor(np.concatenate(attention_masks)),
             'token_type_ids': torch.IntTensor(np.zeros((len(text), max_length))),
         }
         if text_pair is None:
             encoding_data['targets_mask'] = torch.IntTensor(np.concatenate(targets_mask))
+        if self.tm_attention:
+            encoding_data['attention_mask'] = torch.IntTensor(np.concatenate(attention_masks))
 
         return BatchEncoding(data=encoding_data)
+
+    def get_attention_masks(self, cls_token_offset_by_molecule, fits_token_in_input_by_statement_by_molecule,
+                            fits_token_in_input_by_statement_by_molecule_pair,
+                            fits_token_in_input_by_target_by_molecule, fits_token_in_input_by_target_by_molecule_pair,
+                            is_statement_in_input_by_molecule, is_statement_in_input_by_molecule_pair, max_length,
+                            max_length_by_molecule, max_length_by_molecule_pair, molecule_range, n_molecules,
+                            n_statement_tokens_by_molecule, n_statement_tokens_by_molecule_pair,
+                            n_target_tokens_by_molecule, n_target_tokens_by_molecule_pair,
+                            offset_token_by_statement_by_role_by_molecule,
+                            offset_token_by_statement_by_role_by_molecule_pair, offset_token_by_target_by_molecule,
+                            offset_token_by_target_by_molecule_pair, sep_token_offset_by_molecule,
+                            shape_token_by_statement_by_molecule, shape_token_by_statement_by_molecule_pair,
+                            statement_offset_by_molecule, statement_offset_by_molecule_pair, target_offset_by_molecule,
+                            target_offset_by_molecule_pair, text_pair):
+        attention_masks_batch = np.zeros((n_molecules, *2 * [max_length]), dtype=int)
+        # Add holes for cls token
+        seq_length_by_molecule = add_molecule_seeing_token_holes(
+            attention_masks_batch,
+            offset_token_by_statement_by_role_by_molecule,
+            offset_token_by_target_by_molecule,
+            target_offset_by_molecule,
+            token_offset_by_molecule=cls_token_offset_by_molecule
+        )
+        # cls tokens can see themselves
+        attention_masks_batch[:, 0, 0] = 1
+        if text_pair is not None:
+            # add holes for cls token for second molecules
+            seq_length_by_molecule_pair = add_molecule_seeing_token_holes(
+                attention_masks_batch,
+                offset_token_by_statement_by_role_by_molecule_pair,
+                offset_token_by_target_by_molecule_pair,
+                target_offset_by_molecule_pair,
+                token_offset_by_molecule=cls_token_offset_by_molecule
+            )
+            # add holes for sep token
+            for inputs in [
+                (offset_token_by_statement_by_role_by_molecule,
+                 offset_token_by_target_by_molecule,
+                 target_offset_by_molecule),
+                (offset_token_by_statement_by_role_by_molecule_pair,
+                 offset_token_by_target_by_molecule_pair,
+                 target_offset_by_molecule_pair)
+            ]:
+                _ = add_molecule_seeing_token_holes(
+                    attention_masks_batch,
+                    *inputs,
+                    token_offset_by_molecule=sep_token_offset_by_molecule
+                )
+            # sep tokens can see themselves
+            attention_masks_batch[molecule_range, sep_token_offset_by_molecule, sep_token_offset_by_molecule] = 1
+            # sep and cls tokens can see each other
+            attention_masks_batch[molecule_range, sep_token_offset_by_molecule, 0] = 1
+            attention_masks_batch[molecule_range, 0, sep_token_offset_by_molecule] = 1
+
+        # add holes for molecule tokens
+        n_tokens_by_target_by_molecule = add_molecule_holes(
+            attention_masks_batch,
+            is_statement_in_input_by_molecule,
+            fits_token_in_input_by_statement_by_molecule,
+            fits_token_in_input_by_target_by_molecule,
+            max_length_by_molecule,
+            n_statement_tokens_by_molecule,
+            n_target_tokens_by_molecule,
+            offset_token_by_statement_by_role_by_molecule,
+            offset_token_by_target_by_molecule,
+            seq_length_by_molecule,
+            shape_token_by_statement_by_molecule,
+            target_offset_by_molecule,
+            statement_offset_by_molecule
+        )
+        if text_pair is not None:
+            # add holes for targets and statements of molecule pairs
+            n_tokens_by_target_by_molecule_pair = add_molecule_holes(
+                attention_masks_batch,
+                is_statement_in_input_by_molecule_pair,
+                fits_token_in_input_by_statement_by_molecule_pair,
+                fits_token_in_input_by_target_by_molecule_pair,
+                max_length_by_molecule_pair,
+                n_statement_tokens_by_molecule_pair,
+                n_target_tokens_by_molecule_pair,
+                offset_token_by_statement_by_role_by_molecule_pair,
+                offset_token_by_target_by_molecule_pair,
+                seq_length_by_molecule_pair,
+                shape_token_by_statement_by_molecule_pair,
+                target_offset_by_molecule_pair,
+                statement_offset_by_molecule_pair
+            )
+            # add holes between molecules for targets (targets from molecules and targets from molecule pairs can see
+            # each other)
+            product_target_tokens_by_molecule = n_target_tokens_by_molecule * n_target_tokens_by_molecule_pair
+            z_molecule_4_tokens_4_tokens = np.concatenate([np.repeat(i, product_target_tokens)
+                                                           for i, product_target_tokens
+                                                           in enumerate(product_target_tokens_by_molecule)])
+            y_token_4_tokens = np.concatenate([
+                np.repeat(np.arange(target_offset_pair, n_target_tokens_pair + target_offset_pair), n_target_tokens)
+                for target_offset_pair, n_target_tokens_pair, n_target_tokens
+                in
+                zip(target_offset_by_molecule_pair, n_target_tokens_by_molecule_pair, n_target_tokens_by_molecule)
+            ])
+            x_tokens = np.concatenate([
+                np.tile(np.arange(1, n_target_tokens + 1), n_target_tokens_pair)
+                for n_target_tokens_pair, n_target_tokens
+                in zip(n_target_tokens_by_molecule_pair, n_target_tokens_by_molecule)
+            ])
+            attention_masks_batch[z_molecule_4_tokens_4_tokens, y_token_4_tokens, x_tokens] = 1
+            attention_masks_batch[z_molecule_4_tokens_4_tokens, x_tokens, y_token_4_tokens] = 1
+        return attention_masks_batch
 
     def extend_index(self, index_file):
         index_extension = pd.read_csv(index_file, index_col=0, names=['text'])

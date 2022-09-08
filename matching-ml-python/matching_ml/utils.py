@@ -2,8 +2,12 @@ import csv
 import logging
 import os
 import pathlib
+from scipy.special import softmax
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
+from transformers import AutoTokenizer
 
 from MyDatasetWithLabels import MyDatasetWithLabels
+from kbert.tokenizer.TMTokenizer import TMTokenizer
 
 log = logging.getLogger('matching_ml.python_server_melt')
 
@@ -116,3 +120,41 @@ def transformers_get_training_arguments(
     else:
         training_args = TrainingArguments(**training_arguments)
     return training_args
+
+
+def initialize_tokenizer(is_tm_modification_enabled, model_name, max_length,
+                         training_arguments, tm_attention, input_file_path):
+    if is_tm_modification_enabled:
+        index_file_path = training_arguments.get('index_file', get_index_file_path(input_file_path))
+        tokenizer = TMTokenizer.from_pretrained(
+            model_name, index_files=[index_file_path],
+            max_length=max_length,
+            tm_attention=tm_attention)
+
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+    return tokenizer
+
+
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions
+    return compute_metrics_inner(labels, preds)
+
+
+def compute_metrics_inner(labels, preds):
+    preds_binary = preds.argmax(-1)
+    acc = accuracy_score(labels, preds_binary)
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        labels, preds_binary, average="binary", pos_label=1, zero_division=0
+    )
+    preds_proba = softmax(preds, axis=1)[:, 1]
+    auc = roc_auc_score(labels, preds_proba)
+    return {
+        "accuracy": acc,
+        "f1": f1,
+        "precision": precision,
+        "recall": recall,
+        "auc": auc,
+        "aucf1": auc + f1,
+    }

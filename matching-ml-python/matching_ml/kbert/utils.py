@@ -1,5 +1,7 @@
+import pandas as pd
 import time
 from contextlib import contextmanager
+from datetime import datetime, timezone, timedelta
 from transformers import AlbertModel
 
 from kbert.monkeypatches import bert_get_extended_attention_mask, albert_forward
@@ -23,3 +25,9 @@ def apply_tm_attention(transformer_model):
                 *args,
                 **kwargs,
             )
+
+
+def get_timestamp():
+    return pd.Timestamp.today(
+        tz=datetime.now(timezone(timedelta(0))).astimezone().tzinfo
+    ).strftime('%Y-%m-%d_%H.%M')

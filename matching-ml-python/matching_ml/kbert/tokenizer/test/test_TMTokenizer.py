@@ -1,6 +1,6 @@
 from kbert.KBertSentenceTransformer import KBertSentenceTransformer
 from kbert.constants import RESOURCES_DIR
-from python_server_melt import transformers_read_file
+from utils import transformers_read_file
 
 
 def test_tokenize():
@@ -10,12 +10,14 @@ def test_tokenize():
     tokenizer = KBertSentenceTransformer('paraphrase-albert-small-v2', [model_dir / 'index_train.csv']).tokenizer
     # When
     encodings = tokenizer(
-        data_left,
+        data_left[:128],
+        # data_left,
+        data_right[:128],
         data_right,
         return_tensors="pt",
         padding=True,
         truncation="longest_first",
-        max_length=50,
+        max_length=38,
     )
 
     # Then
