@@ -1,6 +1,9 @@
+from datetime import datetime, timezone, timedelta
+
 import csv
 import logging
 import os
+import pandas as pd
 import pathlib
 from scipy.special import softmax
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
@@ -19,6 +22,8 @@ def transformers_init(request_headers):
     if "transformers-cache" in request_headers:
         os.environ["TRANSFORMERS_CACHE"] = request_headers["transformers-cache"]
 
+    # see https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
+    os.environ['TOKENIZERS_PARALLELISM'] = 'FALSE'
 
 def get_index_file_path(corpus_file_path):
     my_path = pathlib.Path(corpus_file_path)
@@ -122,10 +127,9 @@ def transformers_get_training_arguments(
     return training_args
 
 
-def initialize_tokenizer(is_tm_modification_enabled, model_name, max_length,
-                         training_arguments, tm_attention, input_file_path):
+def initialize_tokenizer(is_tm_modification_enabled, model_name, max_length, tm_attention, index_file_path):
+    log.info('load tokenizer')
     if is_tm_modification_enabled:
-        index_file_path = training_arguments.get('index_file', get_index_file_path(input_file_path))
         tokenizer = TMTokenizer.from_pretrained(
             model_name, index_files=[index_file_path],
             max_length=max_length,
@@ -158,3 +162,14 @@ def compute_metrics_inner(labels, preds):
         "auc": auc,
         "aucf1": auc + f1,
     }
+
+
+def get_trial_name(trial):
+    """Function for generating trial names"""
+    return f"{get_timestamp()}_{trial.trial_id}"
+
+
+def get_timestamp():
+    return pd.Timestamp.today(
+        tz=datetime.now(timezone(timedelta(0))).astimezone().tzinfo
+    ).strftime('%Y-%m-%d_%H.%M')

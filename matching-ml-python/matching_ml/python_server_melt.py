@@ -15,6 +15,7 @@ from flask import Flask, request, jsonify
 from gensim import corpora, models, similarities, matutils
 from scipy import linalg
 
+from FlushingReporter import FlushingReporter
 from kbert.models.sequence_classification.find_max_batch_size import find_max_batch_size
 from transformer_finetuning import inner_transformers_finetuning
 from transformer_prediction import inner_transformers_prediction
@@ -1597,12 +1598,6 @@ def transformers_finetuning_hp_search():
 
             app.logger.info("hp_space: " + str(hp_space))
             app.logger.info("hp_mutations: " + str(hp_mutations))
-
-            from ray.tune import CLIReporter
-
-            class FlushingReporter(CLIReporter):
-                def report(self, trials, done, *sys_info):
-                    print(self._progress_str(trials, done, *sys_info), flush=True)
 
             reporter = FlushingReporter(
                 parameter_columns=param_dict_shorter_names,

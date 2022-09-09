@@ -4,9 +4,9 @@ import os
 import tempfile
 from scipy.special import softmax
 
-from kbert.models.sequence_classification.tmt_for_sequence_classification import PLTransformer
+from kbert.models.sequence_classification.PLTransformer import PLTransformer
 from utils import transformers_init, transformers_read_file, transformers_create_dataset, \
-    transformers_get_training_arguments, initialize_tokenizer
+    transformers_get_training_arguments, initialize_tokenizer, get_index_file_path
 
 log = logging.getLogger('matching_ml.python_server_melt')
 
@@ -25,8 +25,9 @@ def inner_transformers_prediction(request_headers):
         from transformers import AutoTokenizer
         is_tm_modification_enabled = request_headers.get('tm', 'false').lower() == 'true'
         tm_attention = request_headers.get('tm-attention', 'false').lower() == 'true'
-        tokenizer = initialize_tokenizer(is_tm_modification_enabled, model_name, int(request_headers['max-length']), training_arguments,
-                                         tm_attention, request_headers["prediction-file-path"])
+        tokenizer = initialize_tokenizer(is_tm_modification_enabled, model_name, int(request_headers['max-length']),
+                                         tm_attention, training_arguments.get('index_file', get_index_file_path(
+                request_headers["prediction-file-path"])))
 
         log.info("Prepare transformers dataset and tokenize")
         data_left, data_right, _ = transformers_read_file(prediction_file_path, False)
