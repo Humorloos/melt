@@ -2,10 +2,11 @@ import logging
 import os
 import pytorch_lightning as pl
 from pathlib import Path
+from pytorch_lightning.callbacks import EarlyStopping
 from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 
-from MyDataModuleWithLabels import MyDataModuleWithLabels
-from kbert.constants import MATCHING_ML_DIR, DEBUG
+from MyDataModule import MyDataModule
+from kbert.constants import MATCHING_ML_DIR, DEBUG, MIN_DELTA, PATIENCE
 from kbert.models.sequence_classification.PLTransformer import PLTransformer
 from utils import get_timestamp
 
@@ -31,14 +32,14 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
         model = PLTransformer.from_pretrained(config)
     # callbacks
     callbacks = [
-        # EarlyStopping(
-        #     monitor='val_f1',
-        #     min_delta=MIN_DELTA,
-        #     patience=PATIENCE,
-        #     verbose=True,
-        #     mode='max',
-        #     # run check in each validation, not after training epoch
-        #     check_on_train_epoch_end=False)
+        EarlyStopping(
+            monitor='val_f1',
+            min_delta=MIN_DELTA,
+            patience=PATIENCE,
+            verbose=True,
+            mode='max',
+            # run check in each validation, not after training epoch
+            check_on_train_epoch_end=False)
     ]
     if do_tune:
         callbacks.append(TuneReportCheckpointCallback(
@@ -71,8 +72,8 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
     trainer = pl.Trainer(**trainer_kwargs)
     # results = trainer.train()
     print('Load tokenizer')
-    datamodule = MyDataModuleWithLabels(
-        data_dir=train_file,
+    datamodule = MyDataModule(
+        train_data_path=train_file,
         batch_size=int(config['batch_size_train']),
         num_workers={True: 1, False: 12}[DEBUG],
         **config

@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from pytorch_lightning import Trainer
 
-from MyDataModuleWithLabels import MyDataModuleWithLabels
+from MyDataModule import MyDataModule
 from kbert.constants import DEFAULT_CONFIG
 from kbert.models.sequence_classification.PLTransformer import PLTransformer
 from utils import transformers_init
@@ -34,7 +34,13 @@ def find_max_batch_size_(request_headers):
     is_tma_enabled = is_header_true('tm-attention')
 
     log.info("Prepare transformers dataset and tokenize")
-    datamodule = MyDataModuleWithLabels(training_file, batch_size=1, num_workers=1, **DEFAULT_CONFIG)
+    datamodule = MyDataModule(
+        train_data_path=training_file,
+        num_workers=1,
+        tm=is_tm_enabled,
+        base_model=initial_model_name,
+        tm_attention=is_tma_enabled,
+    )
     datamodule.setup()
     # sort training dataset by lengths
     numpy_encoding_data = {key: value.detach().numpy() for key, value in datamodule.data_train.encodings.data.items()}

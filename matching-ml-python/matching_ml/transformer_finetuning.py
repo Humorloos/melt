@@ -11,7 +11,7 @@ from sklearn.utils.class_weight import compute_class_weight
 
 from FlushingReporter import FlushingReporter
 from kbert.constants import NUM_SAMPLES, MAX_VAL_SET_SIZE, DEBUG, MATCHING_ML_DIR, DEFAULT_CONFIG, MAX_EPOCHS, RESUME, \
-    RUN_NAME
+    RUN_NAME, SEARCH_RESTORE_DIR_NAME
 from train_transformer import train_transformer
 from utils import transformers_init, transformers_read_file, get_index_file_path, get_timestamp, \
     get_trial_name
@@ -88,7 +88,7 @@ def finetune_transformer(request_headers):
 
         search_config = {
             'batch_size_train': tune.qloguniform(2, batch_size, q=1),
-            'lr': tune.loguniform(1e-6, 1e-2),
+            'lr': tune.loguniform(1e-7, 1e-2),
             'weight_decay': tune.loguniform(1e-7, 1e-1),
             'dropout_prob': tune.uniform(0.1, 0.5),
             'positive_class_weight': tune.uniform(0.1, 0.9)
@@ -99,6 +99,7 @@ def finetune_transformer(request_headers):
             parameter_columns=["batch_size_train", "lr", "weight_decay", "dropout_prob", "positive_class_weight"],
             metric_columns=["loss", "p", "r", "f1", "training_iteration"]
         )
+        ray_local_dir = Path(tmp_dir) / "ray_local_dir"
 
         # PBT
         # scheduler = PopulationBasedTraining(
@@ -110,8 +111,8 @@ def finetune_transformer(request_headers):
         # BOHB
         # BOHB search algorithm for finding new hyperparameter configurations
         search_alg = TuneBOHB()
-        # if SEARCH_RESTORE_DIR is not None:
-        #     search_alg.restore_from_dir(SEARCH_RESTORE_DIR)
+        if SEARCH_RESTORE_DIR_NAME is not None:
+            search_alg.restore_from_dir(ray_local_dir / SEARCH_RESTORE_DIR_NAME)
         search_alg.set_search_properties(metric='f1', mode='max', config=search_config)
 
         # BOHB scheduler for scheduling and discarding trials
@@ -134,12 +135,12 @@ def finetune_transformer(request_headers):
             num_samples={True: 1, False: NUM_SAMPLES}[DEBUG],
             scheduler=scheduler,
             # local_dir=str(Path(tmpdirname) / "ray_local_dir"),
-            local_dir=str(Path(tmp_dir) / "ray_local_dir"),
+            local_dir=str(ray_local_dir),
             trial_name_creator=get_trial_name,
             trial_dirname_creator=get_trial_name,
             name={True: RUN_NAME, False: get_timestamp()}[RESUME],
             resume=RESUME,
-            max_failures=1,  # default: 0, set to higher value to re-try failed trials
+            max_failures=-1,  # default: 0, set to higher value to re-try failed trials
             resources_per_trial={
                 'gpu': 1,
                 'cpu': 1
