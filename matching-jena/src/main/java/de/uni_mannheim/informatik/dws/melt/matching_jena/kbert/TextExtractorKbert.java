@@ -12,5 +12,5 @@ import java.util.stream.Stream;
  */
 public interface TextExtractorKbert extends TextExtractor {
 
-    Stream<String> getIndexStream(Iterator<? extends Resource> model);
+    Stream<String> getIndexStream();
 }

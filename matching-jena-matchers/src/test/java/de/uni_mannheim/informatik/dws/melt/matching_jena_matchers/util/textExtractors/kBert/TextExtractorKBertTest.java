@@ -128,7 +128,7 @@ class TextExtractorKBertTest {
                 textExtractor, "paraphrase-MiniLM-L6-v2");
         Iterator<? extends OntResource> resourceIterator = matcher.getResourcesExtractor().get(0).extract(targetOntology, properties);
         // When
-        Stream<String> molecule = textExtractor.getIndexStream(resourceIterator);
+        Stream<String> molecule = textExtractor.getIndexStream();
         // Then
         System.out.println("");
     }

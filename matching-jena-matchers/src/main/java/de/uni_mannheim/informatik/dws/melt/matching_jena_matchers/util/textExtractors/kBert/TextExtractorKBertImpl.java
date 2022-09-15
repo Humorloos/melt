@@ -14,6 +14,7 @@ import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtra
 import org.apache.jena.atlas.lib.SetUtils;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.Statement;
+import org.apache.jena.rdf.model.StmtIterator;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -29,10 +30,13 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
     private final boolean normalize;
     private final boolean multiText;
 
+    private final Set<ProcessedRDFNode> indexCache;
+
     public TextExtractorKBertImpl(boolean useAllTargets, boolean normalize, boolean multiText) {
         this.useAllTargets = useAllTargets;
         this.normalize = normalize;
         this.multiText = multiText;
+        this.indexCache = new HashSet<>();
     }
 
     @Override
@@ -52,11 +56,19 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
         Map<Object, Set<ObjectStatement<? extends ProcessedRDFNode>>> processedObjectStatements =
                 getObjectStatementStream(targetResource)
                         .filter(statement -> !statement.getObject().isAnon())
-                        .map(statement -> {
-                            if (statement.getObject().isLiteral()) return new LiteralObjectStatement(statement);
-                            return new ResourceObjectStatement(statement);
-                        })
+                        .map(statement -> statement.getObject()
+                                .isLiteral() ?
+                                new LiteralObjectStatement(statement) :
+                                new ResourceObjectStatement(statement))
                         .collect(Collectors.groupingBy(ObjectStatement::getClass, Collectors.mapping(Function.identity(), Collectors.toSet())));
+        processedObjectStatements.values().forEach(
+                objectSatementSet -> objectSatementSet.forEach(
+                        objectStatement -> {
+                            indexCache.add(objectStatement.getPredicate());
+                            indexCache.add(objectStatement.getNeighbor());
+                        }
+                )
+        );
 
         // Get target resource labels
         final Set<? extends ProcessedRDFNode> targets;
@@ -74,6 +86,7 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
                 targets = Set.of(new ProcessedResource<>(targetResource));
             }
         }
+        indexCache.addAll(targets);
 
         // nest targets for extracting multiple molecules if needed
         Set<Set<? extends ProcessedRDFNode>> nestedTargets;
@@ -86,7 +99,12 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
         // get subject statement rows
         Set<Map<String, String>> subjectStatementRows = getSubjectStatementStream(targetResource)
                 .filter(statement -> !statement.getSubject().isAnon())
-                .map(statement -> new SubjectStatement(statement).getRow())
+                .map(stmt -> {
+                    SubjectStatement subjectStatement = new SubjectStatement(stmt);
+                    indexCache.add(subjectStatement.getPredicate());
+                    indexCache.add(subjectStatement.getNeighbor());
+                    return subjectStatement.getRow();
+                })
                 .collect(Collectors.toSet());
 
         return nestedTargets.stream().map(targetSet -> {
@@ -112,25 +130,26 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
     }
 
     @Override
-    public Stream<String> getIndexStream(Iterator<? extends Resource> resourceIterator) {
-        return streamFromIterator(resourceIterator)
-                .flatMap(r -> Stream.concat(getObjectStatementStream(r), getSubjectStatementStream(r)))
-                .flatMap(stmt -> Stream.of(stmt.getSubject(), stmt.getPredicate(), stmt.getObject()))
-                .distinct()
-                .filter(n -> n.isURIResource() || n.isLiteral())
-                .map(n -> n.isURIResource() ? new ProcessedResource<>(n.asResource())
-                        : new ProcessedLiteral(n.asLiteral()))
-                .distinct()
+    public Stream<String> getIndexStream() {
+        return indexCache.stream()
                 .map(pn -> pn.getKey() + "," + escapeCsv(normalize ? pn.getNormalized() : pn.getRaw()));
     }
 
     @NotNull
     private Stream<Statement> getSubjectStatementStream(Resource r) {
-        return streamFromIterator(r.getModel().listStatements(null, null, r));
+        return streamFromIterator(getSubjectStatements(r));
+    }
+
+    private StmtIterator getSubjectStatements(Resource r) {
+        return r.getModel().listStatements(null, null, r);
     }
 
     @NotNull
     private Stream<Statement> getObjectStatementStream(Resource r) {
-        return streamFromIterator(r.listProperties());
+        return streamFromIterator(getObjectStatements(r));
+    }
+
+    private StmtIterator getObjectStatements(Resource r) {
+        return r.listProperties();
     }
 }

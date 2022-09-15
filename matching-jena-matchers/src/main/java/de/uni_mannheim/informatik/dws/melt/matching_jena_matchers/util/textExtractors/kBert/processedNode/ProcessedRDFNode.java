@@ -7,11 +7,6 @@ import java.util.Objects;
 
 public abstract class ProcessedRDFNode {
 
-    /**
-     * todo
-     *
-     * @return todo
-     */
     public NormalizedLiteral getNormalizedLiteral() {
         return new NormalizedLiteral(getRaw());
     }

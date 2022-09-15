@@ -18,6 +18,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -493,12 +494,18 @@ public abstract class TransformersBase extends MatcherYAAAJena {
 
     protected void printIndexIfNeeded(File outputFile, Map<Resource, Map<String, Set<String>>> cache) throws IOException {
         if (this.tm) {
+            LOGGER.info("Writing index for Text Molecule Tokenizer");
             File indexOutputFile = new File(outputFile.getParentFile(), "index_" + outputFile.getName());
             Files.createDirectories(indexOutputFile.getParentFile().toPath());
             try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
+                AtomicInteger linesWritten = new AtomicInteger();
                 ((TextExtractorKbert) this.simpleExtractor)
-                        .getIndexStream(cache.keySet().iterator())
-                        .forEach(printWriter::println);
+                        .getIndexStream()
+                        .forEach(x -> {
+                            printWriter.println(x);
+                            linesWritten.addAndGet(1);
+                        });
+                LOGGER.info("Wrote {} lines to index file", linesWritten);
             }
         }
     }
