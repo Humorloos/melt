@@ -6,7 +6,7 @@ from pytorch_lightning import Trainer
 from MyDataModule import MyDataModule
 from kbert.constants import DEFAULT_CONFIG
 from kbert.models.sequence_classification.PLTransformer import PLTransformer
-from utils import transformers_init
+from utils import transformers_init, get_index_file_path
 
 log = logging.getLogger('matching_ml.python_server_melt')
 
@@ -33,15 +33,16 @@ def find_max_batch_size_(request_headers):
     is_tm_enabled = is_header_true('tm')
     is_tma_enabled = is_header_true('tm-attention')
 
-    log.info("Prepare transformers dataset and tokenize")
     datamodule = MyDataModule(
+        batch_size=1,
         train_data_path=training_file,
         num_workers=1,
         tm=is_tm_enabled,
         base_model=initial_model_name,
         tm_attention=is_tma_enabled,
+        index_file_path=get_index_file_path(training_file)
     )
-    datamodule.setup()
+    datamodule.setup(stage='fit')
     # sort training dataset by lengths
     numpy_encoding_data = {key: value.detach().numpy() for key, value in datamodule.data_train.encodings.data.items()}
     input_lengths = (numpy_encoding_data['input_ids'] != 0).sum(1)
@@ -63,11 +64,10 @@ def find_max_batch_size_(request_headers):
     batch_size = 1
     step = 1
     largest_fitting_batch_size = 0
-
     while True:
         log.info("Run training")
         datamodule.data_train.encodings.data = {
-            key: torch.Tensor(value[len_order][:batch_size]) for key, value in numpy_encoding_data.items()
+            key: torch.Tensor(value[len_order][:batch_size]).long() for key, value in numpy_encoding_data.items()
         }
         datamodule.batch_size = batch_size
         try:
@@ -88,7 +88,7 @@ def find_max_batch_size_(request_headers):
     while True:
         step //= 2
         datamodule.data_train.encodings.data = {
-            key: torch.Tensor(value[len_order][:batch_size]) for key, value in numpy_encoding_data.items()
+            key: torch.Tensor(value[len_order][:batch_size]).long() for key, value in numpy_encoding_data.items()
         }
         datamodule.batch_size = batch_size
         try:

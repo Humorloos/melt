@@ -24,16 +24,20 @@ def inner_transformers_prediction(request_headers):
 def transformer_predict(request_headers):
     transformers_init(request_headers)
     prediction_file_path = request_headers["prediction-file-path"]
-    tmp_dir = request_headers["tmp-dir"]
     change_class = request_headers["change-class"].lower() == "true"
     training_arguments = json.loads(request_headers["training-arguments"])
     is_tm_modification_enabled = request_headers.get('tm', 'false').lower() == 'true'
     tm_attention = request_headers.get('tm-attention', 'false').lower() == 'true'
-    log.info("Loading transformers model")
+    max_length = int(request_headers['max-length'])
+    tma_text = {True: ' and TM attention mask', False: ' but without attention mask'}[tm_attention]
+    tm_text = {
+        True: f'with TM modification{tma_text}. Max molecule length is {max_length}',
+        False: 'without TM modification'
+    }[is_tm_modification_enabled]
+    log.info(f"Loading transformers model {tm_text}")
     checkpoint_path = request_headers['model-name']
     model = PLTransformer.load_from_checkpoint(checkpoint_path)
     model_name = model.base_model.name_or_path
-    max_length = int(request_headers['max-length'])
     datamodule = MyDataModule(
         predict_data_path=prediction_file_path,
         num_workers={True: 1, False: 12}[DEBUG],
@@ -52,7 +56,6 @@ def transformer_predict(request_headers):
     trainer = Trainer(**trainer_kwargs)
 
     log.info("Is gpu used: " + str(torch.cuda.is_available()))
-
     log.info("Run prediction")
     pred_out = trainer.predict(model, datamodule=datamodule)
     class_index = 0 if change_class else 1

@@ -31,17 +31,8 @@ def get_index_file_path(corpus_file_path):
 
 
 def transformers_read_file(file_path, with_labels):
-    data_left = []
-    data_right = []
-    labels = []
-    with open(file_path, encoding="utf-8") as csvfile:
-        readCSV = csv.reader(csvfile, delimiter=",")
-        for row in readCSV:
-            data_left.append(row[0])
-            data_right.append(row[1])
-            if with_labels:
-                labels.append(int(row[2]))
-    return data_left, data_right, labels
+    df = pd.read_csv(file_path, names=['text_left', 'text_right'] + {True: ['label'], False: []}[with_labels])
+    return df['text_left'].tolist(), df['text_right'].tolist(), {True: df['label'].tolist(), False: []}[with_labels]
 
 
 def transformers_create_dataset(

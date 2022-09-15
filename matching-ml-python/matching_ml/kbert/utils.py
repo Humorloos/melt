@@ -2,7 +2,8 @@ import time
 from contextlib import contextmanager
 from transformers import AlbertModel
 
-from kbert.monkeypatches import bert_get_extended_attention_mask, albert_forward
+from kbert.models.sequence_classification.TMAlbertModel import TMAlbertModel
+from kbert.monkeypatches import albert_forward, bert_get_extended_attention_mask
 
 
 @contextmanager
@@ -23,3 +24,11 @@ def apply_tm_attention(transformer_model):
                 *args,
                 **kwargs,
             )
+
+
+# currently only works for albert model, extend for supporting other models
+def get_tm_variant(model):
+    tm_albert = TMAlbertModel(model.albert.config)
+    tm_albert.load_state_dict(model.albert.state_dict())
+    model.albert = tm_albert
+    return model

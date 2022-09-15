@@ -2,7 +2,7 @@ import logging
 import sys
 
 from kbert.constants import RESOURCES_DIR, BATCH_SIZE, TM, TMA, MAX_LENGTH, GPU, USE_WEIGHTED_LOSS, \
-    DATA_DIR, MODEL_DIR
+    DATA_DIR_WITH_FRACTION, MODEL_DIR, POSITIVE_CLASS_WEIGHT
 from kbert.models.sequence_classification.find_max_batch_size import find_max_batch_size_
 from transformer_finetuning import finetune_transformer
 
@@ -17,14 +17,14 @@ logging.basicConfig(
 logging.addLevelName(logging.WARNING, "WARN")
 logging.addLevelName(logging.CRITICAL, "FATAL")
 
+# TUNE = False
 TUNE = True
 
 if __name__ == '__main__':
-    pos_class_weight = {True: 2, False: -1.0}[USE_WEIGHTED_LOSS]
     tmp_dir = str(RESOURCES_DIR)
     model_name = "albert-base-v2"
-    training_file = str(DATA_DIR / 'train.csv')
-    gpu = str(GPU)
+    training_file = str(DATA_DIR_WITH_FRACTION / 'train.csv')
+    gpu = ','.join([str(g) for g in GPU])
     max_length = str(MAX_LENGTH)
     tm_attention = str(TMA)
     shared_headers = {
@@ -47,7 +47,7 @@ if __name__ == '__main__':
             "resulting-model-location": str(MODEL_DIR),
             "training-arguments": "{"
                                   f"\"per_device_train_batch_size\": {batch_size},"
-                                  f"\"weight_of_positive_class\": {pos_class_weight}"
+                                  f"\"weight_of_positive_class\": {POSITIVE_CLASS_WEIGHT}"
                                   "}",
             'tune': str(TUNE)
         },

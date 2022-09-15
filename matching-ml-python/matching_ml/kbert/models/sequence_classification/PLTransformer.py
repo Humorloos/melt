@@ -1,12 +1,12 @@
 import pytorch_lightning as pl
 import torch
 import torchmetrics
+from copy import deepcopy
 from torch import nn
 from torch.optim import AdamW
 from transformers import AutoModelForSequenceClassification
 
-from kbert.constants import MATCHING_ML_DIR
-from kbert.utils import apply_tm_attention
+from kbert.utils import get_tm_variant
 
 
 class PLTransformer(pl.LightningModule):
@@ -15,8 +15,9 @@ class PLTransformer(pl.LightningModule):
         model = AutoModelForSequenceClassification.from_pretrained(
             config['base_model'], *model_args, **kwargs
         )
+
         if config['tm_attention']:
-            apply_tm_attention(model.albert)
+            model = get_tm_variant(model)
         config['model'] = model
         return PLTransformer(config)
 
@@ -47,32 +48,35 @@ class PLTransformer(pl.LightningModule):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, batch, *args, **kwargs):
-        with open(MATCHING_ML_DIR / 'log.txt', 'w') as fout:
-            fout.write('forward')
         return self.base_model(**batch)
 
     def training_step(self, batch):
-        output = self(batch)
-        loss = self.loss(output.logits, batch['labels'])
+        encodings, y = batch
+        output = self(encodings)
+        loss = self.loss(output.logits, y)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True,
                  logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        output = self(batch)
+        encodings, y = batch
+        output = self(encodings)
         y_hat_binary = output.logits.argmax(-1)
 
-        return {'loss': self.loss(output.logits, batch['labels']),
+        return {'loss': self.loss(output.logits, y),
                 'pred': y_hat_binary,
-                'target': batch['labels']}
+                'target': y}
 
     def validation_epoch_end(self, outputs):
-        self.log(f"val_loss", torch.stack([x['loss'] for x in outputs]).mean())
-        for key, value in self.metrics.items():
-            self.log(f"val_{key}", value(
-                torch.cat([x['pred'] for x in outputs]),
-                torch.cat([x['target'] for x in outputs])
-            )[1])
+        if len(outputs) > 0:
+            self.log(f"val_loss", torch.stack([x['loss'] for x in outputs]).mean())
+            for key, value in self.metrics.items():
+                self.log(f"val_{key}", value(
+                    torch.cat([x['pred'] for x in outputs]),
+                    torch.cat([x['target'] for x in outputs])
+                )[1])
+        else:
+            self.log('val_f1', 0)
 
     def configure_optimizers(self):
         return AdamW(
@@ -80,4 +84,3 @@ class PLTransformer(pl.LightningModule):
             lr=self.lr,
             weight_decay=self.weight_decay
         )
-

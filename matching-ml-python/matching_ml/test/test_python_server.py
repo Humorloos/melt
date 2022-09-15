@@ -1,16 +1,32 @@
 # This unit test checks the python_server.py
 # Run `pytest` in the root directory of the jRDF2vec project (where the pom.xml resides).
-
+import logging
 import pytest
 import requests
+import sys
 from pathlib import Path
 from scipy.special import softmax
-from transformers import AutoModelForSequenceClassification, Trainer, AutoTokenizer
+from transformers import Trainer, AutoModelForSequenceClassification, AutoTokenizer
 
 from kbert.constants import RESOURCES_DIR, URI_PREFIX
+from kbert.models.sequence_classification.PLTransformer import PLTransformer
 from kbert.test.ServerThread import ServerThread
+from kbert.tokenizer.TMTokenizer import TMTokenizer
 from python_server_melt import app as my_app
-from utils import transformers_init, transformers_read_file, transformers_create_dataset
+from transformer_finetuning import finetune_transformer
+from utils import transformers_init, transformers_read_file, transformers_create_dataset, compute_metrics
+
+logging.basicConfig(
+    handlers=[
+        logging.FileHandler(__file__ + ".log", "a+", "utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+    # format="PythonServer: %(asctime)s %(levelname)s:%(message)s",
+    format="%(asctime)s %(levelname)-5s ExternalPythonProcess     - %(message)s",
+    level=logging.INFO,
+)
+logging.addLevelName(logging.WARNING, "WARN")
+logging.addLevelName(logging.CRITICAL, "FATAL")
 
 
 @pytest.fixture
@@ -139,16 +155,47 @@ def test_transformers_finetuning_tm(client):
         headers={
             "model-name": "albert-base-v2",
             "using-tf": "false",
-            "training-arguments": "{\"per_device_train_batch_size\": 32}",
+            "training-arguments": "{"
+                                  "\"per_device_train_batch_size\": 98,"
+                                  "\"weight_of_positive_class\": -1.0"
+                                  "}",
             "tmp-dir": str(RESOURCES_DIR),
             "tm": "true",
             "multi-processing": "spawn",
             "resulting-model-location": str(model_dir / 'trained_model'),
             "training-file": str(model_dir / 'train.csv'),
-            "cuda-visible-devices": '4'
+            "cuda-visible-devices": '4',
+            "max-length": '256'
         },
     )
-    print('')
+    print(response.data)
+
+
+def test_finetune_tm():
+    model_dir = RESOURCES_DIR / 'kbert' / 'normalized' / 'all_targets' / 'isMulti_true'
+    log = logging.getLogger('python_server_melt')
+    log.setLevel(logging.INFO)
+    log.addHandler(logging.StreamHandler(sys.stdout))
+    log2 = logging.getLogger('transformers.trainer')
+    log2.setLevel(logging.INFO)
+    result = finetune_transformer(
+        request_headers={
+            "model-name": "albert-base-v2",
+            "using-tf": "false",
+            "training-arguments": "{"
+                                  "\"per_device_train_batch_size\": 98,"
+                                  "\"weight_of_positive_class\": -1.0"
+                                  "}",
+            "tmp-dir": str(RESOURCES_DIR),
+            "tm": "true",
+            "multi-processing": "spawn",
+            "resulting-model-location": str(model_dir / 'trained_model'),
+            "training-file": str(model_dir / 'train.csv'),
+            "cuda-visible-devices": '4',
+            "max-length": '256'
+        },
+    )
+    print(result)
 
 
 def test_transformers_finetuning(client):
@@ -188,7 +235,7 @@ def test_transformers_predict(client):
 
 def test_evaluate(client):
     transformers_init({
-        "cuda-visible-devices": '2,4'
+        "cuda-visible-devices": '4'
     })
     # def test_sentence_transformers_prediction_kbert():
     model_dir = RESOURCES_DIR / 'original'
@@ -196,17 +243,55 @@ def test_evaluate(client):
     tokenizer = AutoTokenizer.from_pretrained(str(model_dir / 'trained_model'))
     data_left, data_right, labels = transformers_read_file(str(model_dir / 'predict.txt'), True)
     dataset = transformers_create_dataset(
-        # False, tokenizer, data_left[:50], data_right[:50], labels[:50]
-        False, tokenizer, data_left, data_right, labels
+        False, tokenizer, data_left[:256], data_right[:256], labels[:256]
+        # False, tokenizer, data_left, data_right, labels
     )
     trainer = Trainer(
         model=model,
         tokenizer=tokenizer,
+        compute_metrics=compute_metrics
     )
     asdf = trainer.predict(dataset)
     scores = softmax(asdf.predictions, axis=1)[:, 0]
 
-    print('')
+    print('scores')
+
+
+def test_evaluate_tm(client):
+    TMA = True
+    MAX_LENGTH = 256
+    USE_WEIGHTED_LOSS = False
+
+    SAMPLE_SIZE = 512
+
+    data_path = 'TM/normalized/all_targets/isMulti_true'
+    DATA_DIR = RESOURCES_DIR / data_path
+    # melt_trained_models_root = PROJECT_DIR / 'melt-target/ftTestCase/albert-base-v2/posHighPrecisionMatcher/TM/' / \
+    #                            data_path
+    model_dir = DATA_DIR / 'random' / 'mean_target' / f'maxLength_{MAX_LENGTH}' / f'tma_{TMA}' / 'isSwitch_false' / \
+                'mouse-human-suite' / {True: "weighted_loss", False: "balanced_loss"}[
+                    USE_WEIGHTED_LOSS] / 'trained_model'
+    transformers_init({
+        "cuda-visible-devices": '4'
+    })
+
+    model = PLTransformer.from_pretrained(model_dir, num_labels=2)
+    tokenizer = TMTokenizer.from_pretrained(model_dir, index_files=[DATA_DIR / 'index_train.csv'],
+                                            max_length=MAX_LENGTH)
+    data_left, data_right, labels = transformers_read_file(str(DATA_DIR / 'train.csv'), True)
+    dataset = transformers_create_dataset(
+        False, tokenizer, data_left[:SAMPLE_SIZE], data_right[:SAMPLE_SIZE], labels[:SAMPLE_SIZE]
+        # False, tokenizer, data_left, data_right, labels
+    )
+    trainer = Trainer(
+        model=model,
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics
+    )
+    asdf = trainer.predict(dataset)
+    scores = softmax(asdf.predictions, axis=1)[:, 0]
+
+    print('scores')
 
 
 def test_transformers_finetuning_tm_profile(client):
@@ -240,7 +325,9 @@ def test_find_max_batch_size(client):
             "model-name": "albert-base-v2",
             "tmp-dir": str(RESOURCES_DIR),
             "training-file": str(model_dir / 'train.csv'),
-            "cuda-visible-devices": '4'
+            "cuda-visible-devices": '4',
+            'max-length': '256',
+            'tm-attention': 'true',
         },
     )
     print('')

@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from kbert.constants import RESOURCES_DIR, TM, TMA, MAX_LENGTH, GPU, DATA_DIR, CHECKPOINT_PATH
+from kbert.constants import RESOURCES_DIR, TM, TMA, MAX_LENGTH, GPU, CHECKPOINT_PATH, DATA_DIR
 from transformer_prediction import transformer_predict
 
 logging.basicConfig(
@@ -18,7 +18,7 @@ logging.addLevelName(logging.CRITICAL, "FATAL")
 if __name__ == '__main__':
     tmp_dir = str(RESOURCES_DIR)
     prediction_file = str(DATA_DIR / 'predict.csv')
-    gpu = str(GPU)
+    gpu = ','.join([str(g) for g in GPU])
     max_length = str(MAX_LENGTH)
     tm_attention = str(TMA)
     shared_headers = {
