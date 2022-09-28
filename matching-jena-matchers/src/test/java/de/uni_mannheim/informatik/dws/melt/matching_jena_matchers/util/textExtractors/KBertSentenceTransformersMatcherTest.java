@@ -4,6 +4,7 @@ import de.uni_mannheim.informatik.dws.melt.matching_data.TestCase;
 import de.uni_mannheim.informatik.dws.melt.matching_data.TrackRepository;
 import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.TextExtractorKBertImpl;
 import de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.kbert.KBertSentenceTransformersMatcher;
+import org.apache.commons.io.FileUtils;
 import org.apache.jena.ontology.OntModel;
 import org.junit.jupiter.api.Test;
 
@@ -17,18 +18,20 @@ import java.util.Properties;
 import static de.uni_mannheim.informatik.dws.melt.matching_base.typetransformer.TypeTransformerRegistry.getTransformedObject;
 import static de.uni_mannheim.informatik.dws.melt.matching_base.typetransformer.TypeTransformerRegistry.getTransformedPropertiesOrNewInstance;
 import static de.uni_mannheim.informatik.dws.melt.matching_ml.python.PythonServer.PYTHON_DIRECTORY_NAME;
+import static java.nio.file.Files.createDirectories;
 
 public class KBertSentenceTransformersMatcherTest {
 
     @Test
     public void testGenerateKBertInputVariations() throws Exception {
+        TestCase testCase = TrackRepository.Anatomy.Default.getTestCase(0);
         File rootFile = new File(
                 new File(
                         this.getClass().getProtectionDomain().getCodeSource().getLocation().getFile()
                 ).getParentFile().getParentFile().getParentFile(),
-                "matching-ml-python/" + PYTHON_DIRECTORY_NAME + "/kbert/test/resources/kbert"
+                "matching-ml-python/" + PYTHON_DIRECTORY_NAME + "/kbert/test/resources/TM/" +
+                        testCase.getTrack().getName() + '/' + testCase.getName()
         );
-        TestCase testCase = TrackRepository.Anatomy.Default.getTestCase(0);
         URL parameters = testCase.getParameters().toURL();
         Properties properties = getTransformedPropertiesOrNewInstance(parameters);
         for (Boolean normalized : Arrays.asList(true, false)) {
@@ -45,6 +48,8 @@ public class KBertSentenceTransformersMatcherTest {
                                         "isMulti_" + multiText + "/" +
                                         entry.getKey() + ".csv");
 
+                        if (targetFile.exists()) FileUtils.delete(targetFile);
+                        createDirectories(targetFile.getParentFile().toPath());
                         // when
                         matcher.createTextFile(sourceOntology, targetFile, matcher.getResourcesExtractor().get(0), properties);
                     }
