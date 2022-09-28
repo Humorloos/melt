@@ -3,7 +3,7 @@ import pytest
 from sentence_transformers import SentenceTransformer
 
 from kbert.KBertSentenceTransformer import KBertSentenceTransformer
-from kbert.constants import RESOURCES_DIR
+from kbert.constants import RESOURCES_DIR, TM_DATA_SPECIFICATION_PATH, TM_DATA_DIR
 from kbert.tokenizer.utils import add_statement_texts
 from matching_ml.python_server_melt import load_file
 
@@ -11,7 +11,7 @@ from matching_ml.python_server_melt import load_file
 # @pytest.mark.skip
 def test_encode_kbert():
     # Given
-    source_dir = RESOURCES_DIR / 'kbert' / 'raw' / 'all_targets'
+    source_dir = TM_DATA_DIR / 'anatomy_track' / 'mouse-human-suite' / TM_DATA_SPECIFICATION_PATH
     model = KBertSentenceTransformer('paraphrase-albert-small-v2', pooling_mode='mean_target',
                                      index_files=[source_dir / 'index_corpus.csv'])
     corpus_file_name = str(source_dir / 'corpus.csv')
