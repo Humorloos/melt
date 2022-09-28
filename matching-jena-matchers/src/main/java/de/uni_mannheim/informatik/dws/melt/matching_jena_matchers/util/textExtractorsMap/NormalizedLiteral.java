@@ -10,7 +10,7 @@ public class NormalizedLiteral {
 
     public NormalizedLiteral(String lexical) {
         this.lexical = lexical;
-        this.normalized = String.join(" ", StringProcessing.normalize(lexical));
+        this.normalized = String.join(" ", StringProcessing.normalize(lexical)).trim().replaceAll(" +", " ");
     }
 
     @Override
