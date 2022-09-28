@@ -499,13 +499,13 @@ public abstract class TransformersBase extends MatcherYAAAJena {
             Files.createDirectories(indexOutputFile.getParentFile().toPath());
             try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
                 AtomicInteger linesWritten = new AtomicInteger();
-                ((TextExtractorKbert) this.simpleExtractor)
-                        .getIndexStream()
-                        .forEach(x -> {
-                            printWriter.println(x);
-                            linesWritten.addAndGet(1);
-                        });
+                TextExtractorKbert tmExtractor = (TextExtractorKbert) this.simpleExtractor;
+                tmExtractor.getIndexStream().forEach(x -> {
+                    printWriter.println(x);
+                    linesWritten.addAndGet(1);
+                });
                 LOGGER.info("Wrote {} lines to index file", linesWritten);
+                tmExtractor.emptyCache();
             }
         }
     }
