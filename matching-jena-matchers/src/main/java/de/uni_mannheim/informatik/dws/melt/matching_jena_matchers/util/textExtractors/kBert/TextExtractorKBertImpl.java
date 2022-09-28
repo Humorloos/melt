@@ -30,7 +30,7 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
     private final boolean normalize;
     private final boolean multiText;
 
-    private final Set<ProcessedRDFNode> indexCache;
+    private Set<ProcessedRDFNode> indexCache;
 
     public TextExtractorKBertImpl(boolean useAllTargets, boolean normalize, boolean multiText) {
         this.useAllTargets = useAllTargets;
@@ -50,6 +50,11 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
                 throw new RuntimeException(e);
             }
         }).collect(Collectors.toSet());
+    }
+
+    @Override
+    public void emptyCache() {
+        this.indexCache = new HashSet<>();
     }
 
     public Set<Map<String, Set<?>>> moleculesFromResource(Resource targetResource) {

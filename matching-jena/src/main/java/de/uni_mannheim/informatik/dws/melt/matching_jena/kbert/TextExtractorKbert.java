@@ -13,4 +13,5 @@ import java.util.stream.Stream;
 public interface TextExtractorKbert extends TextExtractor {
 
     Stream<String> getIndexStream();
+    void emptyCache();
 }
