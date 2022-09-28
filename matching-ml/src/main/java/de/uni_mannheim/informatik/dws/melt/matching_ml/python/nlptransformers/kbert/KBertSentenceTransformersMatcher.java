@@ -85,11 +85,6 @@ public class KBertSentenceTransformersMatcher extends SentenceTransformersMatche
         //LOGGER.info("Write text to file {}", file);
         AtomicInteger linesWritten = new AtomicInteger();
         TextExtractorKbert textExtractorKbert = this.getExtractor();
-        File indexOutputFile = new File(file.getParentFile(), "index_" + file.getName());
-        Files.createDirectories(indexOutputFile.getParentFile().toPath());
-        try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
-            textExtractorKbert.getIndexStream().forEach(printWriter::println);
-        }
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(file.toPath()), StandardCharsets.UTF_8))) {
             streamFromIterator(extractor.extract(model, parameters))
                     .filter(RDFNode::isURIResource)
@@ -103,6 +98,11 @@ public class KBertSentenceTransformersMatcher extends SentenceTransformersMatche
                                 linesWritten.getAndIncrement();
                             })
                     );
+        }
+        File indexOutputFile = new File(file.getParentFile(), "index_" + file.getName());
+        Files.createDirectories(indexOutputFile.getParentFile().toPath());
+        try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
+            textExtractorKbert.getIndexStream().forEach(printWriter::println);
         }
         return linesWritten.get();
     }
