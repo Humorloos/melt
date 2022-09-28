@@ -2,7 +2,7 @@ import logging
 import sys
 
 from kbert.constants import RESOURCES_DIR, BATCH_SIZE, TM, TMA, MAX_LENGTH, GPU, USE_WEIGHTED_LOSS, \
-    DATA_DIR_WITH_FRACTION, MODEL_DIR, POSITIVE_CLASS_WEIGHT
+    DATA_DIR_WITH_FRACTION, MODEL_DIR, POSITIVE_CLASS_WEIGHT, DEBUG
 from kbert.models.sequence_classification.find_max_batch_size import find_max_batch_size_
 from transformer_finetuning import finetune_transformer
 
@@ -24,7 +24,7 @@ if __name__ == '__main__':
     tmp_dir = str(RESOURCES_DIR)
     model_name = "albert-base-v2"
     training_file = str(DATA_DIR_WITH_FRACTION / 'train.csv')
-    gpu = ','.join([str(g) for g in GPU])
+    gpu = ','.join([str(g) for g in {True: [GPU[0]], False: GPU}[DEBUG]])
     max_length = str(MAX_LENGTH)
     tm_attention = str(TMA)
     shared_headers = {

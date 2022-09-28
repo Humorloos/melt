@@ -1,7 +1,11 @@
+import pandas as pd
 import time
+import torch
 from contextlib import contextmanager
+from sklearn.metrics import roc_auc_score
 from transformers import AlbertModel
 
+from kbert.constants import TARGET_METRIC
 from kbert.models.sequence_classification.TMAlbertModel import TMAlbertModel
 from kbert.monkeypatches import albert_forward, bert_get_extended_attention_mask
 
@@ -32,3 +36,38 @@ def get_tm_variant(model):
     tm_albert.load_state_dict(model.albert.state_dict())
     model.albert = tm_albert
     return model
+
+
+def f_score(p, r, beta=2):
+    f = (1 + beta ** 2) * p * r / (beta ** 2 * p + r)
+    return f
+
+
+def get_metrics(prob, label, prefix, include_auc=False):
+    tp = prob.dot(label)
+    fp = prob.dot(1 - label)
+    fn = (1 - prob).dot(label)
+    r = tp / (tp + fn)
+    p = tp / (tp + fp)
+    f1 = f_score(p, r, 1)
+    f2 = f_score(p, r, 2)
+    metrics = {
+        f'{prefix}_recall': r,
+        f'{prefix}_precision': p,
+        f'{prefix}_f1': f1,
+        f'{prefix}_f2': f2
+    }
+    if include_auc:
+        label = label.cpu().detach().numpy()
+        if label.sum() > 0:
+            metrics[f'{prefix}_auc'] = roc_auc_score(y_true=label, y_score=prob.cpu().detach().numpy())
+
+    return metrics
+
+
+def get_best_trial(analysis):
+    trial_results = pd.DataFrame([
+        {TARGET_METRIC: df[TARGET_METRIC].max(), 'trial_id': df['trial_id'].iat[0]} for df in analysis.trial_dataframes.values()
+    ])
+    best_trial_id = trial_results.loc[trial_results[TARGET_METRIC].idxmax(), 'trial_id']
+    return next(t for t in analysis.trials if t.trial_id == best_trial_id)

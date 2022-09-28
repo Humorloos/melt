@@ -60,6 +60,19 @@ class TMTokenizer:
         if self.tm_attention:
             attention_masks = []
         targets_mask = []
+        fits_token_in_input_by_statement_by_molecule_pair, \
+        is_statement_in_input_by_molecule_pair, \
+        n_statement_tokens_by_molecule_pair, \
+        n_target_tokens_by_molecule_pair, \
+        shape_token_by_statement_by_molecule_pair, \
+        fits_token_in_input_by_target_by_molecule_pair, \
+        max_length_by_molecule_pair, \
+        molecule_range, \
+        offset_token_by_statement_by_role_by_molecule_pair, \
+        offset_token_by_target_by_molecule_pair, \
+        sep_token_offset_by_molecule, \
+        statement_offset_by_molecule_pair, \
+        target_offset_by_molecule_pair = 13 * [None]
         for batch_idx in range(((len(text) - 1) // 64) + 1):
             batch_text = text[batch_idx * 64:(batch_idx + 1) * 64]
             # get molecules
@@ -283,7 +296,6 @@ class TMTokenizer:
         encoding_data = {
             'input_ids': torch.IntTensor(np.concatenate(input_ids)),
             'position_ids': torch.IntTensor(np.concatenate(position_ids)),
-            'token_type_ids': torch.IntTensor(np.zeros((len(text), max_length))),
         }
         if text_pair is None:
             encoding_data['targets_mask'] = torch.IntTensor(np.concatenate(targets_mask))

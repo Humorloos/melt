@@ -1,10 +1,8 @@
-from datetime import datetime, timezone, timedelta
-
-import csv
 import logging
 import os
 import pandas as pd
 import pathlib
+from datetime import datetime, timezone, timedelta
 from scipy.special import softmax
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
 from transformers import AutoTokenizer
@@ -25,14 +23,19 @@ def transformers_init(request_headers):
     # see https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
     os.environ['TOKENIZERS_PARALLELISM'] = 'FALSE'
 
+
 def get_index_file_path(corpus_file_path):
     my_path = pathlib.Path(corpus_file_path)
     return my_path.parent / f'index_{my_path.name}'
 
 
 def transformers_read_file(file_path, with_labels):
-    df = pd.read_csv(file_path, names=['text_left', 'text_right'] + {True: ['label'], False: []}[with_labels])
+    df = transformers_get_df(file_path, with_labels)
     return df['text_left'].tolist(), df['text_right'].tolist(), {True: df['label'].tolist(), False: []}[with_labels]
+
+
+def transformers_get_df(file_path, with_labels):
+    return pd.read_csv(file_path, names=['text_left', 'text_right'] + {True: ['label'], False: []}[with_labels])
 
 
 def transformers_create_dataset(
