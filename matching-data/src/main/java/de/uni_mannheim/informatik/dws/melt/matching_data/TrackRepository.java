@@ -839,6 +839,12 @@ public class TrackRepository {
      * @return the testcase with same parameters as the base test case but with a generated input alignment.
      */
     private static TestCase generateTestCaseWithSampledReferenceAlignment(TestCase tc, double fraction, Random randomSeed, boolean removeSamplesFromReference) {
+        return generateTestCaseWithSampledReferencaAlignmentGivenTargetDir(tc, fraction, randomSeed, removeSamplesFromReference, null);
+    }
+
+    private static TestCase generateTestCaseWithSampledReferencaAlignmentGivenTargetDir(
+            TestCase tc, double fraction, Random randomSeed, boolean removeSamplesFromReference, File targetDir
+    ) {
         if (fraction < 0.0 || fraction > 1.0) {
             throw new IllegalArgumentException("Fraction is out of range (smaller zero or greater one)");
         }
@@ -853,7 +859,12 @@ public class TrackRepository {
         inputAlignment.addAll(correspondenceList.subList(0, splitPoint));
 
         try {
-            File inputAlignmentFile = File.createTempFile("alignment_input_from_reference", ".rdf");
+            File inputAlignmentFile;
+            if (targetDir == null) {
+                inputAlignmentFile = File.createTempFile("alignment_input_from_reference", ".rdf");
+            } else {
+                inputAlignmentFile = new File(targetDir, "alignment_input_from_reference.rdf");
+            }
             inputAlignment.serialize(inputAlignmentFile);
 
             //build updated reference alignment if needed
@@ -861,7 +872,12 @@ public class TrackRepository {
             if (removeSamplesFromReference) {
                 Alignment referenceAlignment = new Alignment(tc.getParsedReferenceAlignment(), false);
                 referenceAlignment.addAll(correspondenceList.subList(splitPoint, correspondenceList.size()));
-                File referenceAlignmentFile = File.createTempFile("alignment_reference_rest", ".rdf");
+                File referenceAlignmentFile;
+                if (targetDir == null) {
+                    referenceAlignmentFile = File.createTempFile("alignment_reference_rest", ".rdf");
+                } else {
+                    referenceAlignmentFile = new File(targetDir, "alignment_reference_rest.rdf");
+                }
                 referenceAlignment.serialize(referenceAlignmentFile);
                 referenceAlignmentURI = referenceAlignmentFile.toURI();
             }
@@ -888,6 +904,22 @@ public class TrackRepository {
      */
     public static TestCase generateTestCaseWithSampledReferenceAlignment(TestCase tc, double fraction, long randomSeed, boolean removeSamplesFromReference) {
         return generateTestCaseWithSampledReferenceAlignment(tc, fraction, new Random(randomSeed), removeSamplesFromReference);
+    }
+
+    /**
+     * Generates a test case where the input alignment of the test case is filled with a fraction of the reference alignment.
+     *
+     * @param tc                         the base test case to use.
+     * @param fraction                   the fraction of the reference alignment ( a value between zero and one) which is provided as inputAlignment.
+     * @param randomSeed                 the random seed number. If it is the same number, then a smaller subset (sample with 10 percent) will
+     *                                   be contained in the larger subset (sample with 20 percent).
+     * @param removeSamplesFromReference if true, the reference (for evaluation) will only contain the correspondences which are not in the input alignment.
+     *                                   If false, all correspondences will be evaluated (also those which are in the input alignment).
+     *                                   This means that the eval will also check if the matcher remembers the input alignment.
+     * @return the testcase with same parameters as the base test case but with a generated input alignment.
+     */
+    public static TestCase generateTestCaseWithSampledReferencaAlignmentGivenTargetDir(TestCase tc, double fraction, long randomSeed, boolean removeSamplesFromReference, File targetDir) {
+        return generateTestCaseWithSampledReferencaAlignmentGivenTargetDir(tc, fraction, new Random(randomSeed), removeSamplesFromReference, targetDir);
     }
 
     /**
