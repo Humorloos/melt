@@ -204,18 +204,18 @@ def test_transformers_finetuning(client):
     response = client.get(
         "/transformers-finetuning",
         headers={
-            "model-name": "albert-base-v2",
-            "using-tf": "false",
-            "training-arguments": "{}",
-            "tmp-dir": str(RESOURCES_DIR),
-            "tm": "false",
-            "multi-processing": "spawn",
-            "resulting-model-location": str(model_dir / 'trained_model'),
-            "training-file": str(model_dir / 'train.txt'),
-            "cuda-visible-devices": '4'
+            'model-name': r'/ceph/lloos/melt/matching-ml-python/matching_ml/kbert/test/resources/ray_local_dir/2022-09-27_09.17/2022-09-27_09.17_83d0f_00000/checkpoint_epoch=81-step=34230/',
+            'using-tf': 'false',
+            'training-arguments': '{}',
+            'multi-processing': 'spawn',
+            'tm': 'false',
+            'cuda-visible-devices': '0,1,2,3,4,5,6,7',
+            'tm-attention': 'true',
+            'max-length': '256',
+            'resulting-model-location': r'/ceph/lloos/master_thesis/melt-target/ftTrack/opal_1_1/TextExtractorSet/trained_model_checkpoint',
+            'training-file': r'/ceph/lloos/melt/matching-ml-python/matching_ml/kbert/test/resources/original/opal_1_1',
         },
     )
-    print('')
 
 
 def test_transformers_predict(client):
