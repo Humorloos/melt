@@ -2,17 +2,19 @@ import logging
 import os
 import pytorch_lightning as pl
 import torch
-import wandb
 from pathlib import Path
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.utilities.cloud_io import load as pl_load
 from ray import tune
 from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
+from ray.tune.utils import wait_for_gpu
 from torch import nn
 
+import wandb
+from CustomReportCheckpointCallback import CustomReportCheckpointCallback
 from MyDataModule import MyDataModule
-from kbert.constants import MATCHING_ML_DIR, MIN_DELTA, PATIENCE, WORKERS_PER_TRIAL, DEBUG, MAX_EPOCHS
+from kbert.constants import MIN_DELTA, PATIENCE, WORKERS_PER_TRIAL, DEBUG, MAX_EPOCHS, \
+    TUNE_METRIC_MAPPING
 from kbert.models.sequence_classification.PLTransformer import PLTransformer
 from utils import get_timestamp
 
@@ -26,6 +28,13 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
         gpus = config.pop("gpus")
         if gpus is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = gpus
+    elif do_tune:
+        wait_for_gpu(target_util=0.7, retry=30, delay_s=2)
+        trial_name = tune.get_trial_name()
+
+        wandb_logger = WandbLogger(
+            name=trial_name, save_dir=None, id=trial_name,
+            project="master_thesis", group=trial_name[:16], resume='allow')
     save_dir = config.pop('save_dir')
     train_file = config.pop('data_dir')
     batch_size = int(config['batch_size'])
@@ -52,7 +61,11 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
     else:
         log.info("Load new transformer model")
         print("Load new transformer model")
-        model = PLTransformer.from_pretrained(config)
+        model_path = Path(config['base_model'])
+        if model_path.exists():
+            model = PLTransformer.load_from_checkpoint(model_path)
+        else:
+            model = PLTransformer.from_pretrained(config)
         checkpoint_path = None
         # epoch = 0
 
@@ -67,32 +80,15 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
         base_model=config['base_model'],
         max_input_length=max_length,
         tm_attention=config['tm_attention'],
-        index_file_path=config['index_file_path']
+        index_file_path=config['index_file_path'],
+        one_epoch=do_tune,
     )
     log.info('Setup data module')
     data_module.setup(stage='fit', epoch=None, condensation_factor=config['condense'])
 
     # callbacks
     if do_tune:
-        callbacks = [
-            TuneReportCheckpointCallback({
-                'loss': 'val_loss',
-                'p': 'val_precision',
-                'r': 'val_recall',
-                'f1': 'val_f1',
-                'f2': 'val_f2',
-                'auc': 'val_auc',
-                'bin_p': 'val_bin_precision',
-                'bin_r': 'val_bin_recall',
-                'bin_f1': 'val_bin_f1',
-                'bin_f2': 'val_bin_f2',
-            }, on='validation_end'),
-        ]
-        trial_name = tune.get_trial_name()
-
-        wandb_logger = WandbLogger(
-            name=trial_name, save_dir=None, id=trial_name,
-            project="master_thesis", group=trial_name[:16])
+        callbacks = [CustomReportCheckpointCallback(TUNE_METRIC_MAPPING, on='train_epoch_end')]
         wandb.log({k: v for k, v in config.items() if
                    k in {'pos_weight', 'condense', 'batch_size', 'lr', 'weight_decay', 'dropout'}})
     else:

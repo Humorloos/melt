@@ -2,6 +2,7 @@ import logging
 import os
 import pandas as pd
 import pathlib
+import wandb
 from datetime import datetime, timezone, timedelta
 from scipy.special import softmax
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
@@ -31,7 +32,10 @@ def get_index_file_path(corpus_file_path):
 
 def transformers_read_file(file_path, with_labels):
     df = transformers_get_df(file_path, with_labels)
-    return df['text_left'].tolist(), df['text_right'].tolist(), {True: df['label'].tolist(), False: []}[with_labels]
+    labels = []
+    if with_labels:
+        labels = df['label'].tolist()
+    return df['text_left'].tolist(), df['text_right'].tolist(), labels
 
 
 def transformers_get_df(file_path, with_labels):
@@ -167,3 +171,12 @@ def get_timestamp():
     return pd.Timestamp.today(
         tz=datetime.now(timezone(timedelta(0))).astimezone().tzinfo
     ).strftime('%Y-%m-%d_%H.%M')
+
+
+def initialize_wandb(name):
+    wandb.init(
+        project="master_thesis",
+        name=name,
+        id=name,
+        group=name
+    )

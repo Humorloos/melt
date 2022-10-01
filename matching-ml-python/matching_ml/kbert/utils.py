@@ -11,10 +11,10 @@ from kbert.monkeypatches import albert_forward, bert_get_extended_attention_mask
 
 
 @contextmanager
-def print_time():
+def print_time(description=''):
     start_time = time.time()
     yield
-    print(f'took {time.time() - start_time} seconds')
+    print(f'{description} took {time.time() - start_time} seconds')
 
 
 def apply_tm_attention(transformer_model):

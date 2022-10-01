@@ -60,6 +60,7 @@ class TMTokenizer:
         if self.tm_attention:
             attention_masks = []
         targets_mask = []
+        token_type_ids = []
         fits_token_in_input_by_statement_by_molecule_pair, \
         is_statement_in_input_by_molecule_pair, \
         n_statement_tokens_by_molecule_pair, \
@@ -288,6 +289,13 @@ class TMTokenizer:
                     [np.arange(1, n_target_tokens + 1) for n_target_tokens in n_target_tokens_by_molecule])
                 targets_mask_batch[z_molecule_4_targets_4_tokens, y_target_4_tokens, x_tokens] = 1
                 targets_mask.append(targets_mask_batch)
+            else:
+                n_tokens_by_molecule_pair = n_target_tokens_by_molecule_pair + n_statement_tokens_by_molecule_pair
+                token_type_ids_batch = np.zeros(shape_molecules_by_max_seq_length)
+                type_id_holes_y = np.concatenate([np.repeat(k, v) for k, v in enumerate(n_tokens_by_molecule_pair)])
+                type_id_holes_x = np.concatenate([np.arange(offset, offset + n_tokens) for offset, n_tokens in zip(sep_token_offset_by_molecule + 1, n_tokens_by_molecule_pair)])
+                token_type_ids_batch[type_id_holes_y, type_id_holes_x] = 1
+                token_type_ids.append(token_type_ids_batch)
             input_ids.append(input_ids_batch)
             position_ids.append(position_ids_batch)
             if self.tm_attention:
@@ -299,6 +307,8 @@ class TMTokenizer:
         }
         if text_pair is None:
             encoding_data['targets_mask'] = torch.IntTensor(np.concatenate(targets_mask))
+        else:
+            encoding_data['token_type_ids'] = torch.BoolTensor(np.concatenate(token_type_ids))
         if self.tm_attention:
             encoding_data['attention_mask'] = torch.IntTensor(np.concatenate(attention_masks))
 

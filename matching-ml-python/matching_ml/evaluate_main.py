@@ -12,6 +12,7 @@ from kbert.models.sequence_classification.find_max_batch_size import find_max_ba
 from kbert.utils import get_best_trial
 from transformer_finetuning import finetune_transformer
 from utils import transformers_init
+#%%
 
 logging.basicConfig(
     handlers=[

@@ -9,41 +9,42 @@ URI_PREFIX = "http://localhost:41193/"
 
 PATIENCE = 10
 MIN_DELTA = 0.001
-MAX_VAL_SET_SIZE = 2 ** 13
-MAX_EPOCH_EXAMPLES = 15000
+MAX_VAL_SET_SIZE = 2 ** 12
+# MAX_VAL_SET_SIZE = 2 ** 10
+MAX_EPOCH_EXAMPLES = 2 ** 14
+# MAX_EPOCH_EXAMPLES = 2 ** 11
 MAX_EPOCHS = 1000
 
 # NUM_SAMPLES = 3
 NUM_SAMPLES = 12  # as in hertling2021matching
+# WORKERS_PER_TRIAL = 0
 WORKERS_PER_TRIAL = 12
 
 DEBUG = False
 # DEBUG = True
-# RESUME = True  # True resumes at last checkpoint, False starts new trial
 RESUME = False  # True resumes at last checkpoint, False starts new trial
-# RUN_NAME = '2022-09-22_20.06'  # original 5% all negatives f2
-# RUN_NAME = '2022-09-23_08.56'  # original 5% all negatives auc
-# RUN_NAME = '2022-09-23_11.01'  # original 5% all negatives condensed 3.0 auc
+# RESUME = True  # True resumes at last checkpoint, False starts new trial
 # RUN_NAME = '2022-09-25_16.29'  # TM 5% f2
 # RUN_NAME = '2022-09-26_15.29'  # original 5% f2
-RUN_NAME = '2022-09-27_09.17'  # original 5% f1
+# RUN_NAME = '2022-09-27_09.17'  # original 5% f1
+RUN_NAME = '2022-09-30_17.47'  # original 20% f1
 SEARCH_RESTORE_DIR_NAME = '2022-09-11_15.26'
 # SEARCH_RESTORE_DIR_NAME = None
 
 # from scheduler.utils.utils import get_free_memory_by_gpu
 GPU = [0, 1, 2, 3, 4, 5, 6, 7]  # get_free_memory_by_gpu()
 # GPU = [0, 3, 4, 5, 6, 7]
-# GPU = [0, 2, 4, 3, 6, 7]
+# GPU = [0, 2, 4, 3]
 # GPU = [0, 5]
 # GPU = [6]
 # GPUS_PER_TRIAL = 0.5  # 0.5 trains 2 models per GPU
 GPUS_PER_TRIAL = 1  # 0.5 trains 2 models per GPU
 
 # Independent variables of experiments
-TM = True
-TMA = True
-# TM = False
-# TMA = False
+# TM = True
+# TMA = True
+TM = False
+TMA = False
 REFERENCE_FRACTION = 0.2
 # REFERENCE_FRACTION = 0.05
 # REFERENCE_FRACTION = 1.0
@@ -53,7 +54,7 @@ MAX_LENGTH = 256
 IS_MULTI = True
 TARGET_METRIC = 'f1'
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 # For finetuning without HP optimization
 USE_WEIGHTED_LOSS = False
 
@@ -109,4 +110,19 @@ DEFAULT_CONFIG = {
     'pos_weight': POSITIVE_CLASS_WEIGHT,
     'batch_size': BATCH_SIZE,
     'condense': 14,
+}
+
+TUNE_METRIC_MAPPING = {
+    'loss': 'val_loss',
+    'p': 'val_precision',
+    'r': 'val_recall',
+    'f1': 'val_f1',
+    'f2': 'val_f2',
+    'auc': 'val_auc',
+    'bin_p': 'val_bin_precision',
+    'bin_r': 'val_bin_recall',
+    'bin_f1': 'val_bin_f1',
+    'bin_f2': 'val_bin_f2',
+    'epoch_time': 'epoch_time',
+    'validation_time': 'validation_time',
 }

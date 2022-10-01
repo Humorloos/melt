@@ -3,12 +3,16 @@ import pytorch_lightning as pl
 import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 from transformers import BatchEncoding
 
+import wandb
 from MyRawDataset import MyRawDataset
 from MyTokenizedDataset import MyTokenizedDataset
+from WandbFile import WandbFile
 from kbert.constants import MAX_VAL_SET_SIZE, MAX_EPOCH_EXAMPLES
 from kbert.tokenizer.constants import RANDOM_STATE
+from kbert.utils import print_time
 from utils import transformers_read_file, initialize_tokenizer, transformers_get_df
 
 
@@ -26,6 +30,7 @@ class MyDataModule(pl.LightningDataModule):
             max_input_length=None,
             tm_attention=False,
             index_file_path=None,
+            one_epoch=False,
             **kwargs
     ):
         super().__init__()
@@ -48,18 +53,33 @@ class MyDataModule(pl.LightningDataModule):
             )
         else:
             self.tokenizer = None
+        self.one_epoch = one_epoch
 
     def setup(self, stage=None, epoch=None, condensation_factor=None, **kwargs):
         if stage in ['fit', 'validate'] and self.data_train is None:
             if self.tokenizer is None:
                 print('load pre-tokenized dataset')
-                df = pd.read_pickle(self.train_data_path)
+                # with open(self.train_data_path, 'rb') as train_data_in:
+                #     train_data_dict = torch.load(train_data_in)
+                # for k, v in train_data_dict.items():
+                #     dim = len(v[0].shape)
+                #     if dim == 1:
+                #         concatenated_inputs = torch.cat(v)
+                #     elif dim == 2:
+                #         concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[1])) for a in v])
+                #     else:
+                #         concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[2], 0, max_len - a.shape[2])) for a in v])
+                #     train_data_dict[k] = list(concatenated_inputs.detach().numpy())
+                #
+                # df = pd.DataFrame(train_data_dict)
+                with print_time('loading pickled train df'):
+                    df = pd.read_pickle(self.train_data_path)
             else:
                 print("Prepare transformer dataset")
                 df = transformers_get_df(self.train_data_path, True)
             complete_data_size = df.shape[0]  # size of training + validation set (before split)
             print(f"Transformer dataset contains {complete_data_size} examples.")
-            val_set_size = min(MAX_VAL_SET_SIZE, complete_data_size // 10)  # size of validation set
+            val_set_size = min(MAX_VAL_SET_SIZE, complete_data_size // 5)  # size of validation set
             df_train, df_val = train_test_split(
                 df,
                 test_size=val_set_size,
@@ -122,12 +142,13 @@ class MyDataModule(pl.LightningDataModule):
                 texts_right=df_train['text_right'].tolist(),
                 labels=df_train['label'].tolist()
             )
-        return DataLoader(
-            train_data,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            collate_fn=self.collate,
-        )
+        if self.one_epoch:
+            self.data_train = None
+        data_loader = DataLoader(train_data, batch_size=self.batch_size, num_workers=self.num_workers,
+                                 collate_fn=self.collate, )
+        if wandb.run is not None:
+            return tqdm(data_loader, mininterval=5, file=WandbFile())
+        return data_loader
 
     def val_dataloader(self):
         if self.tokenizer is None:
@@ -170,7 +191,10 @@ class MyDataModule(pl.LightningDataModule):
                 truncation='longest_first',
             )
         if 'label' in batch[0]:
-            labels = torch.LongTensor([i['label'] for i in batch])
+            try:
+                labels = torch.LongTensor([int(i['label']) for i in batch])
+            except:
+                print('')
             # # following lines are for analysis
             # slmr_left, slmr_right = get_single_line_molecule_representations([i['text_left'] for i in batch], self.tokenizer, self.tokenizer.base_tokenizer.model_max_length, [i['text_right'] for i in batch])
             # slmr_df = pd.DataFrame({'slmr_left': slmr_left, 'slmr_right': slmr_right, 'label': labels})

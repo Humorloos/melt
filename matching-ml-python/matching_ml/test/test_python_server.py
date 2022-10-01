@@ -8,7 +8,7 @@ from pathlib import Path
 from scipy.special import softmax
 from transformers import Trainer, AutoModelForSequenceClassification, AutoTokenizer
 
-from kbert.constants import RESOURCES_DIR, URI_PREFIX
+from kbert.constants import RESOURCES_DIR, URI_PREFIX, GPU
 from kbert.models.sequence_classification.PLTransformer import PLTransformer
 from kbert.test.ServerThread import ServerThread
 from kbert.tokenizer.TMTokenizer import TMTokenizer
@@ -204,16 +204,35 @@ def test_transformers_finetuning(client):
     response = client.get(
         "/transformers-finetuning",
         headers={
-            'model-name': r'/ceph/lloos/melt/matching-ml-python/matching_ml/kbert/test/resources/ray_local_dir/2022-09-27_09.17/2022-09-27_09.17_83d0f_00000/checkpoint_epoch=81-step=34230/',
+            'model-name': r'/ceph/lloos/melt/matching-ml-python/matching_ml/kbert/test/resources/ray_local_dir/2022-09-30_17.47/2022-09-30_17.47_34295_00008/checkpoint_epoch=52-step=32727/',
+            'using-tf': 'false',
+            'training-arguments': '{\"per_device_train_batch_size\": 32}',
+            'multi-processing': 'spawn',
+            'tm': 'false',
+            'cuda-visible-devices': '1,2,3,4,5,6,7',
+            'tm-attention': 'true',
+            'max-length': '256',
+            'resulting-model-location': r'/ceph/lloos/master_thesis/melt-target/ftTrack/anatomy_track/TextExtractorSet/trained_model_checkpoint',
+            'training-file': r'/ceph/lloos/melt/matching-ml-python/matching_ml/kbert/test/resources/original/anatomy_track',
+            'tmp-dir': str(RESOURCES_DIR),
+        },
+    )
+
+
+def test_transformers_finetuning_local(client):
+    model_dir = RESOURCES_DIR / 'original'
+    response = client.get(
+        "/transformers-finetuning",
+        headers={
+            'model-name': 'C:\\Users\\Lukas\\git\\melt\\matching-ml-python\\matching_ml\\kbert\\test\\resources\\ray_local_dir\\2022-09-27_09.17\\2022-09-27_09.17_83d0f_00000\\checkpoint_epoch=81-step=34230\\',
             'using-tf': 'false',
             'training-arguments': '{}',
             'multi-processing': 'spawn',
             'tm': 'false',
-            'cuda-visible-devices': '0,1,2,3,4,5,6,7',
             'tm-attention': 'true',
             'max-length': '256',
-            'resulting-model-location': r'/ceph/lloos/master_thesis/melt-target/ftTrack/opal_1_1/TextExtractorSet/trained_model_checkpoint',
-            'training-file': r'/ceph/lloos/melt/matching-ml-python/matching_ml/kbert/test/resources/original/opal_1_1',
+            'resulting-model-location': 'C:\\Users\\Lukas\\git\\master_thesis\\melt-target\\ftTrack\\opal_1_1\\TextExtractorSet\\trained_model_checkpoint',
+            'training-file': 'C:\\Users\\Lukas\\git\\melt\\matching-ml-python\\matching_ml\\kbert\\test\\resources\\original\\opal_1_1',
         },
     )
 
@@ -222,14 +241,16 @@ def test_transformers_predict(client):
     model_dir = RESOURCES_DIR / 'original'
 
     response = client.get('/transformers-prediction', headers={
-        'model-name': str(model_dir / 'trained_model'),
+        'model-name': "/ceph/lloos/master_thesis/./melt-target/ftTrack/anatomy_track/TextExtractorSet/trained_model_checkpoint/checkpoint",
         'using-tf': 'false',
         'training-arguments': '{}',
         'tmp-dir': str(RESOURCES_DIR),
         'multi-processing': 'spawn',
         'tm': 'false',
+        'cuda-visible-devices': '1',
         'prediction-file-path': str(model_dir / 'predict.txt'),
-        'change-class': 'false'})
+        'change-class': 'false'
+    })
     print('')
 
 

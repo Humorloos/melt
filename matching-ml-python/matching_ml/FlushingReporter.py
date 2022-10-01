@@ -1,6 +1,9 @@
 from ray.tune import CLIReporter
 
+import wandb
+
 
 class FlushingReporter(CLIReporter):
+
     def report(self, trials, done, *sys_info):
-        print(self._progress_str(trials, done, *sys_info), flush=True)
+        wandb.run.summary['progress'] = self._progress_str(trials, done, *sys_info)

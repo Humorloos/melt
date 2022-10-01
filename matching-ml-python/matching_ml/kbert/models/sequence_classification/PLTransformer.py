@@ -1,13 +1,11 @@
 import pytorch_lightning as pl
 import torch
-import torchmetrics
-import wandb
 from time import time
 from torch import nn
 from torch.optim import AdamW
 from transformers import AutoModelForSequenceClassification
 
-from kbert.utils import get_tm_variant, f_score, get_metrics
+from kbert.utils import get_tm_variant, get_metrics
 
 
 class PLTransformer(pl.LightningModule):
@@ -33,17 +31,6 @@ class PLTransformer(pl.LightningModule):
         self.lr = config['lr']
         self.weight_decay = config['weight_decay']
 
-        num_labels = config['num_labels']
-        self.p = torchmetrics.Precision(num_classes=num_labels, average=None)
-        self.r = torchmetrics.Recall(num_classes=num_labels, average=None)
-        self.f1 = torchmetrics.F1Score(num_classes=num_labels, average=None)
-        self.f2 = lambda pred, target: f_score(pred, target, beta=2)  # for f1, set beta to 1
-        self.metrics = {
-            'precision': self.p,
-            'recall': self.r,
-            'f1': self.f1,
-            'f2': self.f2
-        }
         self.loss = nn.CrossEntropyLoss(
             weight=torch.FloatTensor([1.0 - config['pos_weight'], config['pos_weight']])
         )
@@ -51,6 +38,8 @@ class PLTransformer(pl.LightningModule):
         self.softmax = nn.Softmax(dim=0)
         self.step_start = None
         self.step_end = None
+        self.epoch_start = None
+        self.validation_start = None
 
     def forward(self, batch, *args, **kwargs):
         return self.base_model(**batch)
@@ -70,6 +59,15 @@ class PLTransformer(pl.LightningModule):
         self.step_end = time()
         self.log('time', self.step_end - self.step_start, on_step=True, logger=True)
 
+    def on_train_epoch_start(self) -> None:
+        self.epoch_start = time()
+
+    def on_validation_epoch_start(self) -> None:
+        if self.epoch_start is not None:
+            self.log('epoch_time', time() - self.epoch_start)
+            self.epoch_start = None
+        self.validation_start = time()
+
     def validation_step(self, batch, batch_idx):
         encodings, y = batch
         output = self(encodings)
@@ -82,6 +80,19 @@ class PLTransformer(pl.LightningModule):
             'target': y
         }
 
+    def validation_epoch_end(self, outputs):
+        if not self.trainer.sanity_checking:
+            self.log('validation_time', time() - self.validation_start)
+            self.validation_start = None
+            if len(outputs) > 0:
+                target = torch.cat([x['target'] for x in outputs]).float()
+                metrics = {'val_loss': torch.stack([x['loss'] for x in outputs]).mean()} | get_metrics(
+                    torch.cat([x['pred'] for x in outputs]), target, 'val', include_auc=True) | get_metrics(
+                    torch.cat([x['bin_pred'] for x in outputs]).float(), target, 'val_bin')
+                self.log_dict(metrics)
+            else:
+                self.log('val_f1', 0)
+
     def test_step(self, batch, batch_idx):
         encodings, y = batch
         output = self(encodings)
@@ -91,20 +102,6 @@ class PLTransformer(pl.LightningModule):
                 'pred': y_hat,
                 'bin_pred': y_hat_binary,
                 'target': y}
-
-    def validation_epoch_end(self, outputs):
-        if len(outputs) > 0:
-            target = torch.cat([x['target'] for x in outputs]).float()
-            metrics = {'val_loss': torch.stack([x['loss'] for x in outputs]).mean()} | get_metrics(
-                torch.cat([x['pred'] for x in outputs]), target, 'val', include_auc=True) | get_metrics(
-                torch.cat([x['bin_pred'] for x in outputs]).float(), target, 'val_bin')
-            self.log_dict(
-                metrics,
-                logger=False
-            )
-            wandb.log(metrics)
-        else:
-            self.log('val_f1', 0)
 
     def test_epoch_end(self, outputs) -> None:
         target = torch.cat([x['target'] for x in outputs]).float()
