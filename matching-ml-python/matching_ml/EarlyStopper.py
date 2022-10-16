@@ -4,6 +4,7 @@ import wandb
 from ray.tune import Stopper
 from typing import Dict
 
+from kbert.constants import DEBUG
 from utils import initialize_wandb
 
 
@@ -41,15 +42,16 @@ class EarlyStopper(Stopper):
                 print(
                     f'{smaller_stmt} {self.patience - trial["iterations_since_last_improvement"]} iterations left before '
                     f'I will stop this trial.')
-        if not self.wandb_initialized:
-            if wandb.run is None:
-                initialize_wandb(self.experiment_name)
-            self.wandb_initialized = True
-        trial_number = trial_id[-2:]
-        wandb.log({
-            f'{trial_number}_iteration': trial['iteration'],
-            f'{trial_number}_space': self.patience - trial["iterations_since_last_improvement"],
-        })
+        if not DEBUG:
+            if not self.wandb_initialized:
+                if wandb.run is None:
+                    initialize_wandb(self.experiment_name)
+                self.wandb_initialized = True
+            trial_number = trial_id[-2:]
+            wandb.log({
+                f'{trial_number}_iteration': trial['iteration'],
+                f'{trial_number}_space': self.patience - trial["iterations_since_last_improvement"],
+            })
         trial['iteration'] += 1
         return False
 

@@ -30,11 +30,12 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
             os.environ["CUDA_VISIBLE_DEVICES"] = gpus
     elif do_tune:
         wait_for_gpu(target_util=0.7, retry=30, delay_s=2)
+    if do_tune:
         trial_name = tune.get_trial_name()
-
         wandb_logger = WandbLogger(
             name=trial_name, save_dir=None, id=trial_name,
             project="master_thesis", group=trial_name[:16], resume='allow')
+        assert wandb_logger.experiment is not None
     save_dir = config.pop('save_dir')
     train_file = config.pop('data_dir')
     batch_size = int(config['batch_size'])

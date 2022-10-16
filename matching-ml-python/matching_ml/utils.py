@@ -125,7 +125,7 @@ def transformers_get_training_arguments(
     return training_args
 
 
-def initialize_tokenizer(is_tm_modification_enabled, model_name, max_length, tm_attention, index_file_path):
+def initialize_tokenizer(is_tm_modification_enabled, model_name, max_length, tm_attention, index_file_path=None):
     log.info('load tokenizer')
     if is_tm_modification_enabled:
         tokenizer = TMTokenizer.from_pretrained(

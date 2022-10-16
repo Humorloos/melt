@@ -44,6 +44,7 @@ def f_score(p, r, beta=2):
 
 
 def get_metrics(prob, label, prefix, include_auc=False):
+    # asdf = pd.DataFrame({k: v.detach().cpu().numpy() for k, v in {'label': label, 'prob': prob}.items()})
     tp = prob.dot(label)
     fp = prob.dot(1 - label)
     fn = (1 - prob).dot(label)
@@ -65,9 +66,11 @@ def get_metrics(prob, label, prefix, include_auc=False):
     return metrics
 
 
-def get_best_trial(analysis):
+def get_best_trial(analysis, metric=TARGET_METRIC):
     trial_results = pd.DataFrame([
-        {TARGET_METRIC: df[TARGET_METRIC].max(), 'trial_id': df['trial_id'].iat[0]} for df in analysis.trial_dataframes.values()
+        {metric: df[metric].max(), 'trial_id': df['trial_id'].iat[0]} for df in analysis.trial_dataframes.values()
     ])
-    best_trial_id = trial_results.loc[trial_results[TARGET_METRIC].idxmax(), 'trial_id']
-    return next(t for t in analysis.trials if t.trial_id == best_trial_id)
+    best_trial_id = trial_results.loc[trial_results[metric].idxmax(), 'trial_id']
+    best_trial = next(t for t in analysis.trials if t.trial_id == best_trial_id)
+    print(f'Best trial is {best_trial} with largest {metric} of {trial_results[metric].max()}')
+    return best_trial

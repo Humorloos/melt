@@ -4,7 +4,7 @@ from ray.tune.trial import Trial
 from typing import Dict, Optional, Callable
 
 import wandb
-from kbert.constants import TUNE_METRIC_MAPPING
+from kbert.constants import TUNE_METRIC_MAPPING, DEBUG
 from utils import initialize_wandb
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ class CustomPBT(PopulationBasedTraining):
         super().__init__(time_attr, metric, mode, perturbation_interval, burn_in_period, hyperparam_mutations,
                          quantile_fraction, resample_probability, custom_explore_fn, log_config, require_attrs, synch)
 
-        if wandb.run is None:
+        if wandb.run is None and not DEBUG:
             initialize_wandb(experiment_name)
 
     def on_trial_result(self, trial_runner: "trial_runner.TrialRunner", trial: Trial, result: Dict) -> str:

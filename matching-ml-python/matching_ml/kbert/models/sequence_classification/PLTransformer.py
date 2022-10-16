@@ -1,3 +1,4 @@
+import pandas as pd
 import pytorch_lightning as pl
 import torch
 from time import time
@@ -35,7 +36,7 @@ class PLTransformer(pl.LightningModule):
             weight=torch.FloatTensor([1.0 - config['pos_weight'], config['pos_weight']])
         )
 
-        self.softmax = nn.Softmax(dim=0)
+        self.softmax = nn.Softmax(dim=1)
         self.step_start = None
         self.step_end = None
         self.epoch_start = None
@@ -72,7 +73,12 @@ class PLTransformer(pl.LightningModule):
         encodings, y = batch
         output = self(encodings)
         y_hat_binary = output.logits.argmax(-1)
-        y_hat = self.softmax(output.logits)[:, 1]
+        softmax_scores = self.softmax(output.logits)
+        # import pandas as pd
+        # asdf = nn.Sigmoid()(output.logits[:, 1]).detach().cpu().numpy()
+        # fdsa = nn.Softmax(dim=1)(output.logits)[:, 1]
+        # iiii = pd.DataFrame({'prob': fdsa.detach().cpu().numpy(), 'target': y.detach().cpu().numpy(), 'pred': y_hat_binary.detach().cpu().numpy()})
+        y_hat = softmax_scores[:, 1]
         return {
             'loss': self.loss(output.logits, y),
             'pred': y_hat,
@@ -86,6 +92,9 @@ class PLTransformer(pl.LightningModule):
             self.validation_start = None
             if len(outputs) > 0:
                 target = torch.cat([x['target'] for x in outputs]).float()
+                # import pandas as pd
+                # asdf = pd.DataFrame({k: torch.cat([x[k] for x in outputs]).detach().cpu().numpy() for k in outputs[0].keys() if k != 'loss'})
+                # jklö = asdf[asdf['target'] == 1]
                 metrics = {'val_loss': torch.stack([x['loss'] for x in outputs]).mean()} | get_metrics(
                     torch.cat([x['pred'] for x in outputs]), target, 'val', include_auc=True) | get_metrics(
                     torch.cat([x['bin_pred'] for x in outputs]).float(), target, 'val_bin')

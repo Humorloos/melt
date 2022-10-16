@@ -17,7 +17,7 @@ MAX_EPOCHS = 1000
 
 # NUM_SAMPLES = 3
 NUM_SAMPLES = 12  # as in hertling2021matching
-# WORKERS_PER_TRIAL = 0
+# WORKERS_PER_TRIAL = 1
 WORKERS_PER_TRIAL = 12
 
 DEBUG = False
@@ -27,9 +27,8 @@ RESUME = False  # True resumes at last checkpoint, False starts new trial
 # RUN_NAME = '2022-09-25_16.29'  # TM 5% f2
 # RUN_NAME = '2022-09-26_15.29'  # original 5% f2
 # RUN_NAME = '2022-09-27_09.17'  # original 5% f1
-RUN_NAME = '2022-09-30_17.47'  # original 20% f1
-SEARCH_RESTORE_DIR_NAME = '2022-09-11_15.26'
-# SEARCH_RESTORE_DIR_NAME = None
+# RUN_NAME = '2022-09-30_17.47'  # original 20% f1
+RUN_NAME = '2022-10-14_16.27'
 
 # from scheduler.utils.utils import get_free_memory_by_gpu
 GPU = [0, 1, 2, 3, 4, 5, 6, 7]  # get_free_memory_by_gpu()
@@ -41,10 +40,10 @@ GPU = [0, 1, 2, 3, 4, 5, 6, 7]  # get_free_memory_by_gpu()
 GPUS_PER_TRIAL = 1  # 0.5 trains 2 models per GPU
 
 # Independent variables of experiments
-# TM = True
-# TMA = True
-TM = False
-TMA = False
+TM = True
+TMA = True
+# TM = False
+# TMA = False
 REFERENCE_FRACTION = 0.2
 # REFERENCE_FRACTION = 0.05
 # REFERENCE_FRACTION = 1.0
@@ -95,7 +94,7 @@ POSITIVE_CLASS_WEIGHT = 0.8439
 WEIGHT_DECAY = 0.08823
 
 MODEL_NAME = "albert-base-v2"
-CHECKPOINT_PATH = '/ceph/lloos/melt/matching-ml-python/matching_ml/kbert/test/resources/ray_local_dir/2022-09-21_13.43/2022-09-21_13.43_98f17_00004/checkpoint_epoch=4-step=1908/checkpoint'
+CHECKPOINT_PATH = '/ceph/lloos/master_thesis/melt-target/ftTrack/anatomy_track/TextExtractorSet/trained_model_checkpoint/checkpoint'
 
 DEFAULT_CONFIG = {
     'base_model': MODEL_NAME,

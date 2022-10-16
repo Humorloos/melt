@@ -1,10 +1,11 @@
-import pickle
+import re
 from collections import defaultdict
 
 import json
 import logging
 import numpy as np
 import pandas as pd
+import pickle
 import shutil
 import torch.multiprocessing
 from math import ceil
@@ -94,68 +95,36 @@ def finetune_transformer(request_headers):
     index_file_path = training_arguments.get('index_file', get_index_file_path(training_file))
 
     # Generate pre-tokenized file
-    pre_tokenized_dir = Path(training_file).parent / str(max_length)
+    training_file_path = Path(training_file)
+    pre_tokenized_dir = training_file_path.parent / str(max_length)
     pre_tokenized_dir.mkdir(parents=True, exist_ok=True)
-    pre_tokenized_file = pre_tokenized_dir / 'train_tokenized.pickle'
-    if not pre_tokenized_file.exists():
-        batch_test = 16
-        model_path = Path(model_name)
-        if model_path.exists():
-            base_model_name = load(model_path)['hyper_parameters']['config']['base_model']
-        else:
-            base_model_name = model_name
-        data_module = MyDataModule(test_data_path=training_file, batch_size=batch_test,
-                                   # num_workers=int(os.cpu_count() / 2 ** 4),
-                                   num_workers=12,
-                                   tm=is_tm_modification_enabled,
-                                   base_model=base_model_name, max_input_length=max_length, tm_attention=tm_attention,
-                                   index_file_path=index_file_path)
-        data_module.setup(stage='test')
-        batch_offsets = {int(n.name[15:-7]) for n in pre_tokenized_dir.iterdir() if n.name.startswith('encodings_dict')}
-        if len(batch_offsets) > 0:
-            n_cached_batches = max(batch_offsets)
-            n_cached_examples = n_cached_batches * batch_test
-            data_module.data_test = MyRawDataset(*data_module.data_test[n_cached_examples:].values())
-        else:
-            n_cached_batches = 0
-        data_loader_iter = iter(data_module.test_dataloader())
-        encodings_dict = defaultdict(lambda: [])
-        print('Pre-tokenizing dataset')
-        for i in (pbar := tqdm(range(n_cached_batches, n_cached_batches + ceil(len(data_module.data_test) / batch_test)))):
-            encoding, labels = next(data_loader_iter)
-            encodings_dict['label'].append(labels.bool())
-            for k, v in encoding.data.items():
-                if k in {'token_type_ids', 'attention_mask'}:
-                    encodings_dict[k].append(v.bool())
-                elif k == 'position_ids' and MAX_LENGTH <= 2 ** 8:
-                    encodings_dict[k].append(v.byte())
-                else:
-                    encodings_dict[k].append(v.short())
-            if i % 5000 == 0 and i > n_cached_batches:
-                iteration = i - n_cached_batches
-                pbar.set_description(
-                    f'average input length: {mean(t.shape[1] for t in encodings_dict["input_ids"][iteration - 5000:iteration])}')
-                with open(pre_tokenized_dir / f'encodings_dict_{i}.pickle', 'wb') as file_out:
-                    pickle.dump({k: v[iteration - 5000:iteration] for k, v in encodings_dict.items()}, file_out)
-        for pre_tokenized_dir_file in pre_tokenized_dir.iterdir():
-            if pre_tokenized_dir_file.name.startswith('encodings_dict'):
-                with open(pre_tokenized_dir_file, 'rb') as dict_file_in:
-                    cached_dict = pickle.load(dict_file_in)
-                for k, v in encodings_dict.items():
-                    v.extend(cached_dict[k])
-        max_len = max(a.shape[1] for a in encodings_dict['input_ids'])
-        for k, v in encodings_dict.items():
-            dim = len(v[0].shape)
-            if dim == 1:
-                concatenated_inputs = torch.cat(v)
-            elif dim == 2:
-                concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[1])) for a in v])
-            else:
-                concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[2], 0, max_len - a.shape[2])) for a in v])
-            encodings_dict[k] = list(concatenated_inputs.detach().numpy())
 
-        encodings_df = pd.DataFrame(encodings_dict)
-        encodings_df.to_pickle(pre_tokenized_file)
+    pre_tokenized_val_file = pre_tokenized_dir / 'val_tokenized.pickle'
+    val_file_path = training_file_path.parent / training_file_path.name.replace('train', 'val')
+    if val_file_path.exists() and not pre_tokenized_val_file.exists():
+        index_file_path_ = Path(index_file_path)
+        pre_tokenize_file(
+            index_file_path_.parent / index_file_path_.name.replace('train', 'val'),
+            is_tm_modification_enabled,
+            max_length,
+            model_name,
+            pre_tokenized_dir,
+            pre_tokenized_val_file,
+            tm_attention,
+            val_file_path
+        )
+    pre_tokenized_train_file = pre_tokenized_dir / 'train_tokenized.pickle'
+    if not pre_tokenized_train_file.exists():
+        encodings_df = pre_tokenize_file(
+            index_file_path,
+            is_tm_modification_enabled,
+            max_length,
+            model_name,
+            pre_tokenized_dir,
+            pre_tokenized_train_file,
+            tm_attention,
+            training_file=training_file_path
+        )
         labels = encodings_df['label']
     else:
         data_left, data_right, labels = transformers_read_file(training_file, True)
@@ -319,3 +288,67 @@ def finetune_transformer(request_headers):
 
         return train_transformer(config, do_tune=do_tune)
         # return train_transformer(config, checkpoint_dir=CHECKPOINT_PATH, do_tune=do_tune)
+
+
+def pre_tokenize_file(index_file_path, is_tm_modification_enabled, max_length, model_name, pre_tokenized_dir,
+                      pre_tokenized_file, tm_attention, training_file):
+    batch_test = 16
+    model_path = Path(model_name)
+    if model_path.exists():
+        base_model_name = load(model_path)['hyper_parameters']['config']['base_model']
+    else:
+        base_model_name = model_name
+    data_module = MyDataModule(test_data_path=training_file, batch_size=batch_test,
+                               # num_workers=int(os.cpu_count() / 2 ** 4),
+                               num_workers=12,
+                               tm=is_tm_modification_enabled,
+                               base_model=base_model_name, max_input_length=max_length, tm_attention=tm_attention,
+                               index_file_path=index_file_path)
+    data_module.setup(stage='test')
+    pre_tokenized_file_prefix = f'{training_file.stem}_encodings_dict'
+    batch_offsets = {int(re.search(r'\d+', n.name)[0])
+                     for n in pre_tokenized_dir.iterdir() if n.name.startswith(pre_tokenized_file_prefix)}
+    if len(batch_offsets) > 0:
+        n_cached_batches = max(batch_offsets)
+        n_cached_examples = n_cached_batches * batch_test
+        data_module.data_test = MyRawDataset(*data_module.data_test[n_cached_examples:].values())
+    else:
+        n_cached_batches = 0
+    data_loader_iter = iter(data_module.test_dataloader())
+    encodings_dict = defaultdict(lambda: [])
+    print('Pre-tokenizing dataset')
+    for i in (pbar := tqdm(range(n_cached_batches, n_cached_batches + ceil(len(data_module.data_test) / batch_test)))):
+        encoding, labels = next(data_loader_iter)
+        encodings_dict['label'].append(labels.bool())
+        for k, v in encoding.data.items():
+            if k in {'token_type_ids', 'attention_mask'}:
+                encodings_dict[k].append(v.bool())
+            elif k == 'position_ids' and MAX_LENGTH <= 2 ** 8:
+                encodings_dict[k].append(v.byte())
+            else:
+                encodings_dict[k].append(v.short())
+        if i % 5000 == 0 and i > n_cached_batches:
+            iteration = i - n_cached_batches
+            pbar.set_description(
+                f'average input length: {mean(t.shape[1] for t in encodings_dict["input_ids"][iteration - 5000:iteration])}')
+            with open(pre_tokenized_dir / f'{pre_tokenized_file_prefix}_{i}.pickle', 'wb') as file_out:
+                pickle.dump({k: v[iteration - 5000:iteration] for k, v in encodings_dict.items()}, file_out)
+    for pre_tokenized_dir_file in pre_tokenized_dir.iterdir():
+        if pre_tokenized_dir_file.name.startswith(pre_tokenized_file_prefix):
+            with open(pre_tokenized_dir_file, 'rb') as dict_file_in:
+                cached_dict = pickle.load(dict_file_in)
+            for k, v in encodings_dict.items():
+                v.extend(cached_dict[k])
+    max_len = max(a.shape[1] for a in encodings_dict['input_ids'])
+    for k, v in encodings_dict.items():
+        dim = len(v[0].shape)
+        if dim == 1:
+            concatenated_inputs = torch.cat(v)
+        elif dim == 2:
+            concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[1])) for a in v])
+        else:
+            concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[2], 0, max_len - a.shape[2])) for a in v])
+        encodings_dict[k] = list(concatenated_inputs.detach().numpy())
+    encodings_df = pd.DataFrame(encodings_dict)
+    encodings_df.to_pickle(pre_tokenized_file)
+    return encodings_df

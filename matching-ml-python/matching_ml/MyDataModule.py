@@ -1,6 +1,8 @@
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from math import floor, ceil
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -38,11 +40,14 @@ class MyDataModule(pl.LightningDataModule):
         self.data_val = None
         self.data_predict = None
         self.data_test = None
-        self.train_data_path = train_data_path
+        if train_data_path is None:
+            self.train_data_path = train_data_path
+        else:
+            self.train_data_path = Path(train_data_path)
         self.predict_data_path = predict_data_path
         self.test_data_path = test_data_path
         self.batch_size = batch_size
-        self.num_workers = num_workers
+        self.num_workers = [num_workers, 0][num_workers == 1]
         if tokenize:
             self.tokenizer = initialize_tokenizer(
                 is_tm_modification_enabled=tm,
@@ -57,6 +62,8 @@ class MyDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None, epoch=None, condensation_factor=None, **kwargs):
         if stage in ['fit', 'validate'] and self.data_train is None:
+            val_data_path = self.train_data_path.parent / self.train_data_path.name.replace("train", "val")
+            separate_val_file = (val_data_path).exists()
             if self.tokenizer is None:
                 print('load pre-tokenized dataset')
                 # with open(self.train_data_path, 'rb') as train_data_in:
@@ -80,13 +87,32 @@ class MyDataModule(pl.LightningDataModule):
             complete_data_size = df.shape[0]  # size of training + validation set (before split)
             print(f"Transformer dataset contains {complete_data_size} examples.")
             val_set_size = min(MAX_VAL_SET_SIZE, complete_data_size // 5)  # size of validation set
-            df_train, df_val = train_test_split(
-                df,
-                test_size=val_set_size,
-                random_state=RANDOM_STATE,
-                # stratify=labels[:128]
-                stratify=df['label']
-            )
+            if separate_val_file:
+                df_train = df
+                if self.tokenizer is None:
+                    with print_time('loading pickled val df'):
+                        df_val = pd.read_pickle(val_data_path)
+                else:
+                    df_val = transformers_get_df(val_data_path, True)
+                if df_val.shape[0] > val_set_size:
+                    val_fraction = val_set_size / df_val.shape[0]
+                    df_val = df_val.groupby(['label'], group_keys=False).apply(
+                        lambda df: df.sample(
+                            {
+                                0: floor(val_fraction * df.shape[0]),
+                                1: ceil(val_fraction * df.shape[0])
+                            }[RANDOM_STATE.binomial(1, val_fraction)],
+                            random_state=RANDOM_STATE
+                        )
+                    )
+            else:
+                df_train, df_val = train_test_split(
+                    df,
+                    test_size=val_set_size,
+                    random_state=RANDOM_STATE,
+                    # stratify=labels[:128]
+                    stratify=df['label']
+                )
             if condensation_factor is not None:
                 grouped_df_train = df_train.groupby('label', group_keys=False)
                 n_pos_examples = grouped_df_train.size()[1]
