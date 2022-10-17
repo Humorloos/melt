@@ -15,7 +15,7 @@ from WandbFile import WandbFile
 from kbert.constants import MAX_VAL_SET_SIZE, MAX_EPOCH_EXAMPLES
 from kbert.tokenizer.constants import RANDOM_STATE
 from kbert.utils import print_time
-from utils import transformers_read_file, initialize_tokenizer, transformers_get_df
+from utils import transformers_read_file, initialize_tokenizer, transformers_get_df, load_fragmented_df
 
 
 class MyDataModule(pl.LightningDataModule):
@@ -60,12 +60,15 @@ class MyDataModule(pl.LightningDataModule):
             self.tokenizer = None
         self.one_epoch = one_epoch
 
-    def setup(self, stage=None, epoch=None, condensation_factor=None, **kwargs):
+    def setup(self, stage=None, epoch=None, condensation_factor=None, pos_fraction=None, **kwargs):
         if stage in ['fit', 'validate'] and self.data_train is None:
             val_data_path = self.train_data_path.parent / self.train_data_path.name.replace("train", "val")
-            separate_val_file = (val_data_path).exists()
+            separate_val_file = val_data_path.exists()
             if self.tokenizer is None:
                 print('load pre-tokenized dataset')
+                # todo: here, randomly load required pos and neg examples (without seed) and concatenate
+                # todo: for validation, we aditionally need to know the verhältnis between pos and neg somehow, we can pass this to setup too
+                # todo: make function load_fragmented_df(dir, n_pos, n_neg) -> pd.Dataframe
                 # with open(self.train_data_path, 'rb') as train_data_in:
                 #     train_data_dict = torch.load(train_data_in)
                 # for k, v in train_data_dict.items():
@@ -79,8 +82,10 @@ class MyDataModule(pl.LightningDataModule):
                 #     train_data_dict[k] = list(concatenated_inputs.detach().numpy())
                 #
                 # df = pd.DataFrame(train_data_dict)
-                with print_time('loading pickled train df'):
-                    df = pd.read_pickle(self.train_data_path)
+                n_pos = ceil(1 / (condensation_factor + 1) * MAX_EPOCH_EXAMPLES)
+                n_neg = MAX_EPOCH_EXAMPLES - n_pos
+                with print_time('loading fragmented pickled train df'):
+                    df = load_fragmented_df(dir=self.train_data_path, min_pos=n_pos, min_neg=n_neg)
             else:
                 print("Prepare transformer dataset")
                 df = transformers_get_df(self.train_data_path, True)
@@ -90,8 +95,15 @@ class MyDataModule(pl.LightningDataModule):
             if separate_val_file:
                 df_train = df
                 if self.tokenizer is None:
-                    with print_time('loading pickled val df'):
-                        df_val = pd.read_pickle(val_data_path)
+                    n_pos = ceil(pos_fraction * val_set_size)
+                    n_neg = val_set_size - n_pos
+                    with print_time('loading fragmented pickled val df'):
+                        df_val = load_fragmented_df(
+                            dir=val_data_path,
+                            min_pos=n_pos,
+                            min_neg=n_neg,
+                            random_state=RANDOM_STATE
+                        )
                 else:
                     df_val = transformers_get_df(val_data_path, True)
                 if df_val.shape[0] > val_set_size:

@@ -73,7 +73,7 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
     max_length = config['max_input_length']
     data_module = MyDataModule(
         # train_data_path=train_file,
-        train_data_path=Path(train_file).parent / str(max_length) / 'train_tokenized.pickle',
+        train_data_path=Path(train_file).parent / str(max_length) / 'train',
         batch_size=batch_size,
         num_workers={True: 1, False: WORKERS_PER_TRIAL}[DEBUG],
         tokenize=False,
@@ -85,7 +85,7 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
         one_epoch=do_tune,
     )
     log.info('Setup data module')
-    data_module.setup(stage='fit', epoch=None, condensation_factor=config['condense'])
+    data_module.setup(stage='fit', epoch=None, condensation_factor=config['condense'], pos_fraction=config['pos_frac'])
 
     # callbacks
     if do_tune:

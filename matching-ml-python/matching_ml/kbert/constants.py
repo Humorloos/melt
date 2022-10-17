@@ -40,10 +40,10 @@ GPU = [0, 1, 2, 3, 4, 5, 6, 7]  # get_free_memory_by_gpu()
 GPUS_PER_TRIAL = 1  # 0.5 trains 2 models per GPU
 
 # Independent variables of experiments
-TM = True
-TMA = True
-# TM = False
-# TMA = False
+# TM = True
+# TMA = True
+TM = False
+TMA = False
 REFERENCE_FRACTION = 0.2
 # REFERENCE_FRACTION = 0.05
 # REFERENCE_FRACTION = 1.0
@@ -57,7 +57,7 @@ BATCH_SIZE = 32
 # For finetuning without HP optimization
 USE_WEIGHTED_LOSS = False
 
-TRACK = 'crosstrack'
+TRACK = 'opal_1_1'
 TEST_CASE = "crosstestcase"
 
 TM_DATA_DIR = RESOURCES_DIR / 'TM'

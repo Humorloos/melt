@@ -13,6 +13,8 @@ from kbert.monkeypatches import albert_forward, bert_get_extended_attention_mask
 @contextmanager
 def print_time(description=''):
     start_time = time.time()
+    if description != '':
+        print(description)
     yield
     print(f'{description} took {time.time() - start_time} seconds')
 

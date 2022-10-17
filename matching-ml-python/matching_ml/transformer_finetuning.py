@@ -1,11 +1,10 @@
-import re
 from collections import defaultdict
 
 import json
 import logging
 import numpy as np
 import pandas as pd
-import pickle
+import re
 import shutil
 import torch.multiprocessing
 from math import ceil
@@ -14,11 +13,11 @@ from pytorch_lightning.utilities.cloud_io import load
 from ray import tune
 from ray.tune import ExperimentAnalysis
 from sklearn.utils.class_weight import compute_class_weight
-from statistics import mean
 from torch.nn.functional import pad
 from tqdm import tqdm
 
 from CustomPBT import CustomPBT
+from DescStr import DescStr
 from EarlyStopper import EarlyStopper
 from FlushingReporter import FlushingReporter
 from MyDataModule import MyDataModule
@@ -26,9 +25,16 @@ from MyRawDataset import MyRawDataset
 from custom_explore import custom_explore
 from kbert.constants import NUM_SAMPLES, DEBUG, DEFAULT_CONFIG, RESUME, \
     RUN_NAME, WORKERS_PER_TRIAL, GPUS_PER_TRIAL, PATIENCE, TARGET_METRIC, MAX_LENGTH
+from kbert.tokenizer.constants import RANDOM_STATE
 from kbert.utils import get_best_trial
 from train_transformer import train_transformer
-from utils import transformers_init, transformers_read_file, get_index_file_path, get_timestamp
+from utils import transformers_init, get_index_file_path, get_timestamp, transformers_get_df
+
+MAX_CONDENSATION_FACTOR = 100
+
+MIN_CONDENSATION_FACTOR = 1
+
+SPLIT_SIZE = 500
 
 log = logging.getLogger('python_server_melt')
 DF_FILE_COLS = ['text_left', 'text_right', 'label']
@@ -40,27 +46,9 @@ def inner_transformers_finetuning(request_headers):
     try:
         track_dir = Path(request_headers['training-file'])
         tm = request_headers['tm'].lower() == 'true'
-        test_case_dfs = []
-        if tm:
-            test_case_indices = []
-        data_path = (Path(''), Path('normalized') / 'all_targets' / 'isMulti_true')[tm] / 'posref0.2_all_negatives'
-        for test_case_dir in track_dir.iterdir():
-            if test_case_dir.name != 'crosstestcase':
-                train_dir = test_case_dir / data_path
-                test_case_dfs.append(pd.read_csv(train_dir / 'train.csv', names=DF_FILE_COLS))
-                if tm:
-                    test_case_indices.append(pd.read_csv(train_dir / 'index_train.csv', names=INDEX_COLS))
-        track_train_df = pd.concat(test_case_dfs, ignore_index=True)
-        cross_test_case_dir = track_dir / 'crosstestcase' / data_path
-        cross_test_case_dir.mkdir(exist_ok=True, parents=True)
-        cross_test_case_path = cross_test_case_dir / 'train.csv'
-        track_train_df.to_csv(cross_test_case_path, header=False)
-        if tm:
-            track_index = pd.concat(test_case_indices, ignore_index=True)
-            track_index = track_index[~track_index['key'].duplicated()].set_index('key').fillna('UNK')
-            track_index.to_csv(cross_test_case_dir / 'index_train.csv', header=False)
-
-        request_headers['training-file'] = cross_test_case_path
+        cross_test_case_train_file_path = join_test_case_dfs(tm, track_dir, 'train')
+        join_test_case_dfs(tm, track_dir, 'val')
+        request_headers['training-file'] = cross_test_case_train_file_path
         request_headers['model-name'] = Path(request_headers['model-name']) / 'checkpoint'
 
         experiment_path = finetune_transformer(request_headers)
@@ -76,6 +64,29 @@ def inner_transformers_finetuning(request_headers):
         import traceback
 
         return "ERROR " + traceback.format_exc()
+
+
+def join_test_case_dfs(tm, track_dir, purpose):
+    test_case_dfs = []
+    if tm:
+        test_case_indices = []
+    data_path = (Path(''), Path('normalized') / 'all_targets' / 'isMulti_true')[tm] / 'posref0.2_all_negatives'
+    for test_case_dir in track_dir.iterdir():
+        if test_case_dir.name != 'crosstestcase':
+            train_dir = test_case_dir / data_path
+            test_case_dfs.append(pd.read_csv(train_dir / f'{purpose}.csv', names=DF_FILE_COLS))
+            if tm:
+                test_case_indices.append(pd.read_csv(train_dir / f'index_{purpose}.csv', names=INDEX_COLS))
+    track_train_df = pd.concat(test_case_dfs, ignore_index=True)
+    cross_test_case_dir = track_dir / 'crosstestcase' / data_path
+    cross_test_case_dir.mkdir(exist_ok=True, parents=True)
+    cross_test_case_path = cross_test_case_dir / f'{purpose}.csv'
+    track_train_df.to_csv(cross_test_case_path, header=False)
+    if tm:
+        track_index = pd.concat(test_case_indices, ignore_index=True)
+        track_index = track_index[~track_index['key'].duplicated()].set_index('key').fillna('UNK')
+        track_index.to_csv(cross_test_case_dir / f'index_{purpose}.csv', header=False)
+    return cross_test_case_path
 
 
 def finetune_transformer(request_headers):
@@ -99,9 +110,19 @@ def finetune_transformer(request_headers):
     pre_tokenized_dir = training_file_path.parent / str(max_length)
     pre_tokenized_dir.mkdir(parents=True, exist_ok=True)
 
-    pre_tokenized_val_file = pre_tokenized_dir / 'val_tokenized.pickle'
+    encodings_df = pre_tokenize_file(
+        index_file_path,
+        is_tm_modification_enabled,
+        max_length,
+        model_name,
+        pre_tokenized_dir=pre_tokenized_dir,
+        tm_attention=tm_attention,
+        training_file=training_file_path
+    )
+    labels = encodings_df['label']
+
     val_file_path = training_file_path.parent / training_file_path.name.replace('train', 'val')
-    if val_file_path.exists() and not pre_tokenized_val_file.exists():
+    if val_file_path.exists():
         index_file_path_ = Path(index_file_path)
         pre_tokenize_file(
             index_file_path_.parent / index_file_path_.name.replace('train', 'val'),
@@ -109,25 +130,9 @@ def finetune_transformer(request_headers):
             max_length,
             model_name,
             pre_tokenized_dir,
-            pre_tokenized_val_file,
             tm_attention,
             val_file_path
         )
-    pre_tokenized_train_file = pre_tokenized_dir / 'train_tokenized.pickle'
-    if not pre_tokenized_train_file.exists():
-        encodings_df = pre_tokenize_file(
-            index_file_path,
-            is_tm_modification_enabled,
-            max_length,
-            model_name,
-            pre_tokenized_dir,
-            pre_tokenized_train_file,
-            tm_attention,
-            training_file=training_file_path
-        )
-        labels = encodings_df['label']
-    else:
-        data_left, data_right, labels = transformers_read_file(training_file, True)
 
     # determine val check interval (spend 10 times more time on training than on validation)
     complete_data_size = len(labels)
@@ -163,9 +168,12 @@ def finetune_transformer(request_headers):
 
         #
         n_pos_labels = sum(1 for label in labels if label == 1)
-        positive_class_weight = 1 - n_pos_labels / complete_data_size
+        positive_fraction = n_pos_labels / complete_data_size
+        positive_class_weight = 1 - positive_fraction
         positive_class_weight_upper_bound = min(0.99, positive_class_weight + 0.125)
         positive_class_weight_lower_bound = min(0.75, positive_class_weight - 0.125)
+
+        config['pos_frac'] = positive_fraction
 
         search_config = {
             'batch_size': tune.quniform(2, batch_size, q=1),
@@ -173,7 +181,7 @@ def finetune_transformer(request_headers):
             'weight_decay': tune.loguniform(1e-7, 1e-1),
             'dropout': tune.uniform(0.1, 0.5),
             'pos_weight': tune.uniform(positive_class_weight_lower_bound, positive_class_weight_upper_bound),
-            'condense': tune.loguniform(1, 100),
+            'condense': tune.loguniform(MIN_CONDENSATION_FACTOR, MAX_CONDENSATION_FACTOR),
         }
         config = config | search_config
 
@@ -290,65 +298,98 @@ def finetune_transformer(request_headers):
         # return train_transformer(config, checkpoint_dir=CHECKPOINT_PATH, do_tune=do_tune)
 
 
-def pre_tokenize_file(index_file_path, is_tm_modification_enabled, max_length, model_name, pre_tokenized_dir,
-                      pre_tokenized_file, tm_attention, training_file):
+def pre_tokenize_file(index_file_path, is_tm_modification_enabled, max_length, model_name, pre_tokenized_dir: Path,
+                      tm_attention, training_file):
+    # todo: split training file into equal-size splits such that each split contains
+    # min_c: min condensation factor
+    # max_c: max condensation factor
+    # N: train epoch examples
+    # S: train set size
+    # pn: fraction of negatives in train set
+    # nn: number of negatives in train set
+    # ns: number of splits
+    # n_pos = 1/(1+min_c)*N
+    # n_neg = min(max_c * n_pos, nn/ns)
+    # save only relevant validation examples to file
     batch_test = 16
     model_path = Path(model_name)
     if model_path.exists():
         base_model_name = load(model_path)['hyper_parameters']['config']['base_model']
     else:
         base_model_name = model_name
+    df = transformers_get_df(training_file, True)
+    purpose = training_file.stem
+    purpose_dir = pre_tokenized_dir / purpose
+    label_dict_list = []
+    for label in [0, 1]:
+        label_df = df[df['label'] == label].sample(frac=1, random_state=RANDOM_STATE)
+        n_splits = ceil(label_df.shape[0] / SPLIT_SIZE)
+        split_sizes = [len(s) for s in np.array_split(np.ones(label_df.shape[0]), n_splits)]
+        label_dir = purpose_dir / f'label_{label}'
+        label_dir.mkdir(exist_ok=True, parents=True)
+        split_ids = {int(re.search(r'\d+', n.name)[0]) for n in label_dir.iterdir()}
+        n_tokenized_splits = len(split_ids)
+        label_dict_list.append({
+            'df': label_df,
+            'n_tokenized_splits': n_tokenized_splits,
+            'done': n_splits == n_tokenized_splits,
+            'dir': label_dir,
+            'split_sizes': split_sizes,
+        })
+
+    if all(d['done'] for d in label_dict_list):
+        print('All examples have already been tokenized, skipping pre-tokenization')
+        return df
+
     data_module = MyDataModule(test_data_path=training_file, batch_size=batch_test,
                                # num_workers=int(os.cpu_count() / 2 ** 4),
                                num_workers=12,
                                tm=is_tm_modification_enabled,
                                base_model=base_model_name, max_input_length=max_length, tm_attention=tm_attention,
                                index_file_path=index_file_path)
-    data_module.setup(stage='test')
-    pre_tokenized_file_prefix = f'{training_file.stem}_encodings_dict'
-    batch_offsets = {int(re.search(r'\d+', n.name)[0])
-                     for n in pre_tokenized_dir.iterdir() if n.name.startswith(pre_tokenized_file_prefix)}
-    if len(batch_offsets) > 0:
-        n_cached_batches = max(batch_offsets)
-        n_cached_examples = n_cached_batches * batch_test
-        data_module.data_test = MyRawDataset(*data_module.data_test[n_cached_examples:].values())
-    else:
-        n_cached_batches = 0
-    data_loader_iter = iter(data_module.test_dataloader())
-    encodings_dict = defaultdict(lambda: [])
-    print('Pre-tokenizing dataset')
-    for i in (pbar := tqdm(range(n_cached_batches, n_cached_batches + ceil(len(data_module.data_test) / batch_test)))):
-        encoding, labels = next(data_loader_iter)
-        encodings_dict['label'].append(labels.bool())
-        for k, v in encoding.data.items():
-            if k in {'token_type_ids', 'attention_mask'}:
-                encodings_dict[k].append(v.bool())
-            elif k == 'position_ids' and MAX_LENGTH <= 2 ** 8:
-                encodings_dict[k].append(v.byte())
-            else:
-                encodings_dict[k].append(v.short())
-        if i % 5000 == 0 and i > n_cached_batches:
-            iteration = i - n_cached_batches
-            pbar.set_description(
-                f'average input length: {mean(t.shape[1] for t in encodings_dict["input_ids"][iteration - 5000:iteration])}')
-            with open(pre_tokenized_dir / f'{pre_tokenized_file_prefix}_{i}.pickle', 'wb') as file_out:
-                pickle.dump({k: v[iteration - 5000:iteration] for k, v in encodings_dict.items()}, file_out)
-    for pre_tokenized_dir_file in pre_tokenized_dir.iterdir():
-        if pre_tokenized_dir_file.name.startswith(pre_tokenized_file_prefix):
-            with open(pre_tokenized_dir_file, 'rb') as dict_file_in:
-                cached_dict = pickle.load(dict_file_in)
+    for label, label_dict in enumerate(label_dict_list):  # todo: undo reverse
+        if label_dict['done']:
+            print(f'All examples with label {label} have already been tokenized')
+        n_tokenized_splits = label_dict['n_tokenized_splits']
+        print(f'Pre-tokenizing examples with label {label} starting with split {n_tokenized_splits}')
+        n_cached_examples = sum(split_sizes[:n_tokenized_splits])
+        label_df = label_dict['df'].iloc[n_cached_examples:]
+        data_module.data_test = MyRawDataset(
+            label_df['text_left'].tolist(),
+            label_df['text_right'].tolist(),
+            label_df['label'].tolist()
+        )
+        desc = DescStr()
+        df_dict = defaultdict(lambda: [])
+        dataloader_iter = iter(data_module.test_dataloader())
+        split_sizes = label_dict['split_sizes']
+        for i, split_size in enumerate(pbar := tqdm(split_sizes[n_tokenized_splits:]),
+                                       n_tokenized_splits):
+            encodings_dict = defaultdict(lambda: [])
+            n_batches_this_iter = ceil((split_size - len(df_dict['input_ids'])) / batch_test)
+            for _ in tqdm(range(n_batches_this_iter), file=desc):
+                pbar.set_description(desc.read())
+                encoding, labels = next(dataloader_iter)
+                encodings_dict['label'].append(labels.bool())
+                for k, v in encoding.data.items():
+                    if k in {'token_type_ids', 'attention_mask'}:
+                        encodings_dict[k].append(v.bool())
+                    elif k == 'position_ids' and MAX_LENGTH <= 2 ** 8:
+                        encodings_dict[k].append(v.byte())
+                    else:
+                        encodings_dict[k].append(v.short())
+            max_len = max(a.shape[1] for a in encodings_dict['input_ids'])
             for k, v in encodings_dict.items():
-                v.extend(cached_dict[k])
-    max_len = max(a.shape[1] for a in encodings_dict['input_ids'])
-    for k, v in encodings_dict.items():
-        dim = len(v[0].shape)
-        if dim == 1:
-            concatenated_inputs = torch.cat(v)
-        elif dim == 2:
-            concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[1])) for a in v])
-        else:
-            concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[2], 0, max_len - a.shape[2])) for a in v])
-        encodings_dict[k] = list(concatenated_inputs.detach().numpy())
-    encodings_df = pd.DataFrame(encodings_dict)
-    encodings_df.to_pickle(pre_tokenized_file)
-    return encodings_df
+                dim = len(v[0].shape)
+                if dim == 1:
+                    concatenated_inputs = torch.cat(v)
+                elif dim == 2:
+                    concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[1])) for a in v])
+                else:
+                    concatenated_inputs = torch.cat(
+                        [pad(a, (0, max_len - a.shape[2], 0, max_len - a.shape[2])) for a in v])
+                df_dict[k].extend(list(concatenated_inputs.detach().numpy()))
+            encodings_df = pd.DataFrame({k: v[:split_size] for k, v in df_dict.items()})
+            encodings_df.to_pickle(label_dict['dir'] / f'split_{i}.pickle')
+            df_dict = {k: v[split_size:] for k, v in df_dict.items()}
+    return df

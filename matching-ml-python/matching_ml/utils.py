@@ -1,15 +1,18 @@
 import logging
+import numpy as np
 import os
 import pandas as pd
 import pathlib
-import wandb
 from datetime import datetime, timezone, timedelta
+from math import ceil
 from scipy.special import softmax
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
 from transformers import AutoTokenizer
 
+import wandb
 from MyDatasetWithLabels import MyDatasetWithLabels
 from kbert.tokenizer.TMTokenizer import TMTokenizer
+from kbert.utils import print_time
 
 log = logging.getLogger('matching_ml.python_server_melt')
 
@@ -39,7 +42,9 @@ def transformers_read_file(file_path, with_labels):
 
 
 def transformers_get_df(file_path, with_labels):
-    return pd.read_csv(file_path, names=['text_left', 'text_right'] + {True: ['label'], False: []}[with_labels])
+    with print_time(f'loading df {file_path}'):
+        csv = pd.read_csv(file_path, names=['text_left', 'text_right'] + {True: ['label'], False: []}[with_labels])
+    return csv
 
 
 def transformers_create_dataset(
@@ -127,14 +132,15 @@ def transformers_get_training_arguments(
 
 def initialize_tokenizer(is_tm_modification_enabled, model_name, max_length, tm_attention, index_file_path=None):
     log.info('load tokenizer')
-    if is_tm_modification_enabled:
-        tokenizer = TMTokenizer.from_pretrained(
-            model_name, index_files=[index_file_path],
-            max_length=max_length,
-            tm_attention=tm_attention)
-
-    else:
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+    with print_time('loading tokenizer'):
+        if is_tm_modification_enabled:
+            tokenizer = TMTokenizer.from_pretrained(
+                model_name, index_files=[index_file_path],
+                max_length=max_length,
+                tm_attention=tm_attention
+            )
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
     return tokenizer
 
 
@@ -180,3 +186,44 @@ def initialize_wandb(name):
         id=name,
         group=name
     )
+
+
+def load_fragmented_df(dir, min_pos, min_neg, random_state: np.random.RandomState = None) -> pd.DataFrame:
+    label_df = pd.DataFrame([{
+        'required_splits': ceil(n / 500),
+        'dir': dir / f'label_{i}'
+    } for i, n in enumerate([min_neg, min_pos])])
+    label_df['n_splits'] = label_df['dir'].apply(lambda d: len(list(iter(d.iterdir()))))
+    if random_state is None:
+        choice = np.random.choice
+    else:
+        choice = random_state.choice
+    label_df['split_ids'] = label_df[['required_splits', 'n_splits']].apply(
+        lambda row: choice(row['n_splits'], row['required_splits']), axis=1
+    )
+    label_df['df'] = label_df[['dir', 'split_ids']].apply(
+        lambda row: load_fragmented_df_for_label(row, random_state, min_neg, min_pos),
+        axis=1
+    )
+    all_dfs = label_df['df'].values
+    merged_df = pd.concat(all_dfs, ignore_index=True)
+    padded_df = merged_df.apply(pad_to_max_len)
+    return padded_df.sample(frac=1, random_state=random_state)
+
+
+def load_fragmented_df_for_label(row, random_state, min_neg, min_pos):
+    df = pd.concat([pd.read_pickle(row['dir'] / f'split_{i}.pickle') for i in row["split_ids"]], ignore_index=True)
+    sample_size = min([min_neg, min_pos][row.name], df.shape[0])
+    return df.sample(sample_size, random_state=random_state)
+
+
+def pad_to_max_len(col):
+    first_element = col.iat[0]
+    if not isinstance(first_element, np.ndarray):
+        return col
+    dim = len(first_element.shape)
+    max_len = col.apply(len).max()
+    if dim == 1:
+        return col.apply(lambda a: np.pad(a, (0, max_len - a.shape[0])))
+    elif dim == 2:
+        return col.apply(lambda a: np.pad(a, (0, max_len - a.shape[0], 0, max_len - a.shape[0])))
