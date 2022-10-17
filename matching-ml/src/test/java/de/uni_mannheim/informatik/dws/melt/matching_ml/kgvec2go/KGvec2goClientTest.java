@@ -6,6 +6,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Disabled;
+
 
 class KGvec2goClientTest {
 

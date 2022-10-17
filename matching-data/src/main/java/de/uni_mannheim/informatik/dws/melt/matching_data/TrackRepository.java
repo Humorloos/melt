@@ -272,6 +272,24 @@ public class TrackRepository {
         public static Track Popconference80 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "popconference", "popconference-80-v1");
         public static Track Popconference100 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "popconference", "popconference-100-v1");
     }
+    
+    
+    /**
+     * Food Nutritional Composition track.
+     * This track consists of finding alignments between food concepts
+     * from CIQUAL, the French food nutritional composition database, and food concepts from SIREN. 
+     * Food concepts from both databases are described in LanguaL, a well-known multilingual thesaurus using faceted classification.
+     */
+    public static class Food {
+        /**
+         * This track consists of finding alignments between food concepts
+         * from CIQUAL, the French food nutritional composition database, and food concepts from SIREN.
+         * Foods from both databases are described in LanguaL, a well-known multilingual thesaurus using faceted classification.
+         * Reference alignment originates from <a href="https://doi.org/10.15454/BVXD7I">https://doi.org/10.15454/BVXD7I</a>.
+         **/
+        public static Track V1 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "food", "v1");
+
+    }
 
     /**
      * Instance Matching
@@ -607,6 +625,27 @@ public class TrackRepository {
          * The new Biodiv track used in OAEI 2021. 
          */
         public static Track V2021OWL = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "biodiv", "2021owl");
+        
+        /**
+         * The new Biodiv track used in OAEI 2022. 
+         */
+        public static Track V2022 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "biodiv", "2022");
+    }
+    
+    
+    /**
+     * Material Sciences and Engineering track.
+     * The Material Sciences and Engineering (MSE) track contains the first benchmark for the evaluation of
+     * (semi-)automatic ontology matching techniques. In this emerging ontological domain, small to mid-sized upper and domain level ontologies
+     * are used that contain concepts described in natural language and are implemented by heterogeneous design principles
+     * with only partial overlap to each other.
+     */
+    public static class MSE {
+        /**
+         * 2021 Version
+         */
+        public static Track V2021 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "mse", "2021");
+        
     }
 
     /**
@@ -654,6 +693,30 @@ public class TrackRepository {
         // TODO implement
     }
 
+    /**
+     * This track evaluates the ability of matching systems to map the schema (classes)
+     * of large common knowledge graphs such as DBpedia, YAGO and NELL.
+     */
+    public static class CommonKG {
+        
+        /**
+         * This version matches Nell and DBpedia (originates from the paper <a href="http://disi.unitn.it/~pavel/om2020/papers/om2020_LTpaper3.pdf"> A Gold Standard Dataset for Large Knowledge Graphs Matching</a>).
+         * The <a href="https://github.com/OmaimaFallatah/KG_GoldeStandard">github repro is also available</a>.
+         * This used to be another version of the knowledge graph track but is now its own track.
+         **/
+        public static Track NELL_DBPEDIA_V1 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "commonkg", "nell-dbpedia-v1", false, GoldStandardCompleteness.PARTIAL_SOURCE_COMPLETE_TARGET_COMPLETE);
+        
+        /**
+         * This version originates from <a href="https://github.com/OmaimaFallatah/YagoWikiData">https://github.com/OmaimaFallatah/YagoWikiData</a>.
+         */
+        public static Track YAGO_WIKIDATA_V1 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "commonkg", "yago-wikidata-v1", false, GoldStandardCompleteness.PARTIAL_SOURCE_COMPLETE_TARGET_COMPLETE);
+        
+        /**
+         * This version originates from <a href="https://github.com/OmaimaFallatah/YagoWikiData">https://github.com/OmaimaFallatah/YagoWikiData</a> 
+         * and is a small version of YAGO_WIKIDATA_V1.
+         */
+        public static Track YAGO_WIKIDATA_V1_SMALL = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "commonkg", "yago-wikidata-v1-small", false, GoldStandardCompleteness.PARTIAL_SOURCE_COMPLETE_TARGET_COMPLETE);
+    }
 
     /**
      * Knowledgegraph track.
@@ -699,6 +762,7 @@ public class TrackRepository {
         /**
          * This version of the KG track contains test cases from the paper <a href="http://disi.unitn.it/~pavel/om2020/papers/om2020_LTpaper3.pdf"> A Gold Standard Dataset for Large Knowledge Graphs Matching</a>.
          * The <a href="https://github.com/OmaimaFallatah/KG_GoldeStandard">github repro is also available</a>.
+         * @deprecated better use  
          **/
         public static Track CommonKG = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "knowledgegraph", "commonkg", false, GoldStandardCompleteness.PARTIAL_SOURCE_COMPLETE_TARGET_COMPLETE);
 
@@ -866,7 +930,8 @@ public class TrackRepository {
                 inputAlignmentFile = new File(targetDir, "alignment_input_from_reference.rdf");
             }
             inputAlignment.serialize(inputAlignmentFile);
-
+            
+            URI evaluationExclusionAlignment = null;
             //build updated reference alignment if needed
             URI referenceAlignmentURI = tc.getReference();
             if (removeSamplesFromReference) {
@@ -880,9 +945,11 @@ public class TrackRepository {
                 }
                 referenceAlignment.serialize(referenceAlignmentFile);
                 referenceAlignmentURI = referenceAlignmentFile.toURI();
+                evaluationExclusionAlignment = inputAlignmentFile.toURI();
             }
 
-            return new TestCase(tc.getName(), tc.getSource(), tc.getTarget(), referenceAlignmentURI, tc.getTrack(), inputAlignmentFile.toURI(), tc.getGoldStandardCompleteness(), tc.getParameters());
+            return new TestCase(tc.getName(), tc.getSource(), tc.getTarget(), referenceAlignmentURI, tc.getTrack(),
+                    inputAlignmentFile.toURI(), tc.getGoldStandardCompleteness(), tc.getParameters(), evaluationExclusionAlignment);
 
         } catch (IOException ex) {
             LOGGER.error("Could not write alignment to file. Returning initial testcase", ex);
