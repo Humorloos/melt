@@ -28,7 +28,11 @@ public class ExecutionResult {
 
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ExecutionResult.class);
-    
+
+    public void setTestCase(TestCase testCase) {
+        this.testCase = testCase;
+    }
+
     private TestCase testCase;
     private String matcherName;    
     private URL originalSystemAlignment;

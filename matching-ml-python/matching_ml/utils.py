@@ -217,12 +217,15 @@ def load_fragmented_df_for_label(row, random_state, min_neg, min_pos):
     return df.sample(sample_size, random_state=random_state)
 
 
-def pad_to_max_len(col):
+def pad_to_max_len(col: pd.Series):
     first_element = col.iat[0]
     if not isinstance(first_element, np.ndarray):
         return col
     dim = len(first_element.shape)
-    max_len = col.apply(len).max()
+    lengths: pd.Series = col.apply(len)
+    max_len = lengths.max()
+    if (lengths == max_len).all():
+        return col
     if dim == 1:
         return col.apply(lambda a: np.pad(a, (0, max_len - a.shape[0])))
     elif dim == 2:

@@ -35,15 +35,15 @@ GPU = [0, 1, 2, 3, 4, 5, 6, 7]  # get_free_memory_by_gpu()
 # GPU = [0, 3, 4, 5, 6, 7]
 # GPU = [0, 2, 4, 3]
 # GPU = [0, 5]
-# GPU = [6]
+# GPU = [5]
 # GPUS_PER_TRIAL = 0.5  # 0.5 trains 2 models per GPU
 GPUS_PER_TRIAL = 1  # 0.5 trains 2 models per GPU
 
 # Independent variables of experiments
-# TM = True
-# TMA = True
-TM = False
-TMA = False
+TM = True
+TMA = True
+# TM = False
+# TMA = False
 REFERENCE_FRACTION = 0.2
 # REFERENCE_FRACTION = 0.05
 # REFERENCE_FRACTION = 1.0
@@ -57,7 +57,7 @@ BATCH_SIZE = 32
 # For finetuning without HP optimization
 USE_WEIGHTED_LOSS = False
 
-TRACK = 'opal_1_1'
+TRACK = 'crosstrack'
 TEST_CASE = "crosstestcase"
 
 TM_DATA_DIR = RESOURCES_DIR / 'TM'
@@ -124,4 +124,14 @@ TUNE_METRIC_MAPPING = {
     'bin_f2': 'val_bin_f2',
     'epoch_time': 'epoch_time',
     'validation_time': 'validation_time',
+    'train_loss': 'train_epoch_loss',
+    'train_p': 'train_precision',
+    'train_r': 'train_recall',
+    'train_f1': 'train_f1',
+    'train_f2': 'train_f2',
+    'train_auc': 'train_auc',
+    'train_bin_p': 'train_bin_precision',
+    'train_bin_r': 'train_bin_recall',
+    'train_bin_f1': 'train_bin_f1',
+    'train_bin_f2': 'train_bin_f2',
 }

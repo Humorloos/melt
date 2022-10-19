@@ -66,9 +66,6 @@ class MyDataModule(pl.LightningDataModule):
             separate_val_file = val_data_path.exists()
             if self.tokenizer is None:
                 print('load pre-tokenized dataset')
-                # todo: here, randomly load required pos and neg examples (without seed) and concatenate
-                # todo: for validation, we aditionally need to know the verhältnis between pos and neg somehow, we can pass this to setup too
-                # todo: make function load_fragmented_df(dir, n_pos, n_neg) -> pd.Dataframe
                 # with open(self.train_data_path, 'rb') as train_data_in:
                 #     train_data_dict = torch.load(train_data_in)
                 # for k, v in train_data_dict.items():
@@ -104,6 +101,23 @@ class MyDataModule(pl.LightningDataModule):
                             min_neg=n_neg,
                             random_state=RANDOM_STATE
                         )
+                        # # following lines are for analysis
+                        # from kbert.constants import MODEL_NAME
+                        # tokenizer = initialize_tokenizer(
+                        #     is_tm_modification_enabled=False,
+                        #     model_name=MODEL_NAME,
+                        #     max_length=256,
+                        #     tm_attention=False,
+                        #     index_file_path=None
+                        # )
+                        # pos_examples = df_val.loc[df_val['label'] == 1].reset_index(drop=True)
+                        # pos_examples[['text_left', 'text_right']] = pd.DataFrame(
+                        #     pd.Series(tokenizer.batch_decode(pos_examples['input_ids'])).str.split('\[SEP\]').tolist(),
+                        #     columns=['text_left', 'text_right']
+                        # )
+                        # import numpy as np
+                        # masks = np.stack(pos_examples['attention_mask'].values)
+                        # types = np.stack(pos_examples['token_type_ids'].values)
                 else:
                     df_val = transformers_get_df(val_data_path, True)
                 if df_val.shape[0] > val_set_size:
@@ -125,7 +139,7 @@ class MyDataModule(pl.LightningDataModule):
                     # stratify=labels[:128]
                     stratify=df['label']
                 )
-            if condensation_factor is not None:
+            if condensation_factor is not None and self.tokenizer is not None:
                 grouped_df_train = df_train.groupby('label', group_keys=False)
                 n_pos_examples = grouped_df_train.size()[1]
 

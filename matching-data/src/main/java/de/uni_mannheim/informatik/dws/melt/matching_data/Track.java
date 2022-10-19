@@ -56,6 +56,10 @@ public abstract class Track implements Comparable<Track> {
      */
     protected static File cacheFolder;
 
+    public boolean isSkipTestsWithoutRefAlign() {
+        return skipTestsWithoutRefAlign;
+    }
+
     protected boolean skipTestsWithoutRefAlign;
     
     protected String remoteLocation;
@@ -63,7 +67,11 @@ public abstract class Track implements Comparable<Track> {
     protected String version;
     
     protected List<TestCase> testCases; //initialized lazily
-    
+
+    public boolean isUseDuplicateFreeStorageLayout() {
+        return useDuplicateFreeStorageLayout;
+    }
+
     /**
      * If true, store and load testcases in a folder structure where ontologies are only stored once and not copied for every testcase.
      * layout:
@@ -74,7 +82,11 @@ public abstract class Track implements Comparable<Track> {
      *     - ont1-ont2.rdf
      */
     protected boolean useDuplicateFreeStorageLayout;
-    
+
+    public GoldStandardCompleteness getGoldStandardCompleteness() {
+        return goldStandardCompleteness;
+    }
+
     /**
      * Completeness of the gold standard for all test cases.
      */

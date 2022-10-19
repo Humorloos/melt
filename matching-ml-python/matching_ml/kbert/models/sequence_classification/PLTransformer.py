@@ -54,7 +54,16 @@ class PLTransformer(pl.LightningModule):
         loss = self.loss(output.logits, y)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True,
                  logger=True)
-        return loss
+        # return loss
+        y_hat_binary = output.logits.argmax(-1)
+        softmax_scores = self.softmax(output.logits)
+        y_hat = softmax_scores[:, 1]
+        return {
+            'loss': loss,
+            'pred': y_hat,
+            'bin_pred': y_hat_binary,
+            'target': y
+        }
 
     def training_step_end(self, step_output):
         self.step_end = time()
@@ -62,6 +71,13 @@ class PLTransformer(pl.LightningModule):
 
     def on_train_epoch_start(self) -> None:
         self.epoch_start = time()
+
+    def training_epoch_end(self, outputs) -> None:
+        target = torch.cat([x['target'] for x in outputs]).float()
+        metrics = {'train_epoch_loss': torch.stack([x['loss'] for x in outputs]).mean()} | get_metrics(
+            torch.cat([x['pred'] for x in outputs]), target, 'train', include_auc=True) | get_metrics(
+            torch.cat([x['bin_pred'] for x in outputs]).float(), target, 'train_bin')
+        self.log_dict(metrics)
 
     def on_validation_epoch_start(self) -> None:
         if self.epoch_start is not None:
