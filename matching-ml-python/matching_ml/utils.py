@@ -41,7 +41,7 @@ def transformers_read_file(file_path, with_labels):
     return df['text_left'].tolist(), df['text_right'].tolist(), labels
 
 
-def transformers_get_df(file_path, with_labels):
+def transformers_get_df(file_path, with_labels=True):
     with print_time(f'loading df {file_path}'):
         csv = pd.read_csv(file_path, names=['text_left', 'text_right'] + {True: ['label'], False: []}[with_labels])
     return csv

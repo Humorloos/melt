@@ -67,9 +67,22 @@ def inner_transformers_finetuning(request_headers):
 
 
 def join_test_case_dfs(tm, track_dir, purpose):
-    test_case_dfs = []
+    cross_test_case_df, test_case_indices = get_cross_test_case_df_and_indices(purpose, tm, track_dir)
+    data_path = (Path(''), Path('normalized') / 'all_targets' / 'isMulti_true')[tm] / 'posref0.2_all_negatives'
+    cross_test_case_dir = track_dir / 'crosstestcase' / data_path
+    cross_test_case_dir.mkdir(exist_ok=True, parents=True)
+    cross_test_case_path = cross_test_case_dir / f'{purpose}.csv'
+    cross_test_case_df.to_csv(cross_test_case_path, header=False)
     if tm:
-        test_case_indices = []
+        track_index = pd.concat(test_case_indices, ignore_index=True)
+        track_index = track_index[~track_index['key'].duplicated()].set_index('key').fillna('UNK')
+        track_index.to_csv(cross_test_case_dir / f'index_{purpose}.csv', header=False)
+    return cross_test_case_path
+
+
+def get_cross_test_case_df_and_indices(purpose, tm, track_dir):
+    test_case_dfs = []
+    test_case_indices = []
     data_path = (Path(''), Path('normalized') / 'all_targets' / 'isMulti_true')[tm] / 'posref0.2_all_negatives'
     for test_case_dir in track_dir.iterdir():
         if test_case_dir.name != 'crosstestcase':
@@ -77,16 +90,8 @@ def join_test_case_dfs(tm, track_dir, purpose):
             test_case_dfs.append(pd.read_csv(train_dir / f'{purpose}.csv', names=DF_FILE_COLS))
             if tm:
                 test_case_indices.append(pd.read_csv(train_dir / f'index_{purpose}.csv', names=INDEX_COLS))
-    track_train_df = pd.concat(test_case_dfs, ignore_index=True)
-    cross_test_case_dir = track_dir / 'crosstestcase' / data_path
-    cross_test_case_dir.mkdir(exist_ok=True, parents=True)
-    cross_test_case_path = cross_test_case_dir / f'{purpose}.csv'
-    track_train_df.to_csv(cross_test_case_path, header=False)
-    if tm:
-        track_index = pd.concat(test_case_indices, ignore_index=True)
-        track_index = track_index[~track_index['key'].duplicated()].set_index('key').fillna('UNK')
-        track_index.to_csv(cross_test_case_dir / f'index_{purpose}.csv', header=False)
-    return cross_test_case_path
+    cross_test_case_df = pd.concat(test_case_dfs, ignore_index=True)
+    return cross_test_case_df, test_case_indices
 
 
 def finetune_transformer(request_headers):
