@@ -199,7 +199,7 @@ def load_fragmented_df(dir, min_pos, min_neg, random_state: np.random.RandomStat
     else:
         choice = random_state.choice
     label_df['split_ids'] = label_df[['required_splits', 'n_splits']].apply(
-        lambda row: choice(row['n_splits'], row['required_splits']), axis=1
+        lambda row: choice(row['n_splits'], min(row['n_splits'], row['required_splits'])), axis=1
     )
     label_df['df'] = label_df[['dir', 'split_ids']].apply(
         lambda row: load_fragmented_df_for_label(row, random_state, min_neg, min_pos),

@@ -308,7 +308,7 @@ class TMTokenizer:
         if text_pair is None:
             encoding_data['targets_mask'] = torch.IntTensor(np.concatenate(targets_mask))
         else:
-            encoding_data['token_type_ids'] = torch.BoolTensor(np.concatenate(token_type_ids))
+            encoding_data['token_type_ids'] = torch.IntTensor(np.concatenate(token_type_ids))
         if self.tm_attention:
             encoding_data['attention_mask'] = torch.IntTensor(np.concatenate(attention_masks))
 

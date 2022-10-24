@@ -24,7 +24,7 @@ from MyDataModule import MyDataModule
 from MyRawDataset import MyRawDataset
 from custom_explore import custom_explore
 from kbert.constants import NUM_SAMPLES, DEBUG, DEFAULT_CONFIG, RESUME, \
-    RUN_NAME, WORKERS_PER_TRIAL, GPUS_PER_TRIAL, PATIENCE, TARGET_METRIC, MAX_LENGTH
+    RUN_NAME, WORKERS_PER_TRIAL, GPUS_PER_TRIAL, PATIENCE, TARGET_METRIC, MAX_LENGTH, MIN_DELTA, MAX_EPOCH_EXAMPLES
 from kbert.tokenizer.constants import RANDOM_STATE
 from kbert.utils import get_best_trial
 from train_transformer import train_transformer
@@ -51,11 +51,8 @@ def inner_transformers_finetuning(request_headers):
         request_headers['training-file'] = cross_test_case_train_file_path
         request_headers['model-name'] = Path(request_headers['model-name']) / 'checkpoint'
 
-        experiment_path = finetune_transformer(request_headers)
-        analysis = ExperimentAnalysis(experiment_path)
+        best_model_path = finetune_transformer(request_headers)
 
-        best_trial = get_best_trial(analysis)
-        best_model_path = Path(analysis.get_best_checkpoint(best_trial, TARGET_METRIC, 'max')) / 'checkpoint'
         target_path = Path(request_headers['resulting-model-location'])
         target_path.mkdir(parents=True, exist_ok=True)
         shutil.copy(best_model_path, target_path)
@@ -125,6 +122,7 @@ def finetune_transformer(request_headers):
         training_file=training_file_path
     )
     labels = encodings_df['label']
+    patience = min(PATIENCE, int(encodings_df.shape[0] / MAX_EPOCH_EXAMPLES))
 
     val_file_path = training_file_path.parent / training_file_path.name.replace('train', 'val')
     if val_file_path.exists():
@@ -249,6 +247,13 @@ def finetune_transformer(request_headers):
             """Function for generating trial names"""
             return f"{experiment_name}_{trial.trial_id}"
 
+        early_stopper = EarlyStopper(
+            patience=patience,
+            min_delta=MIN_DELTA,
+            experiment_name=experiment_name,
+            target_metric=TARGET_METRIC,
+            ray_local_dir=ray_local_dir,
+        )
         tune.run(
             # ray_train,
             tune.with_parameters(
@@ -273,13 +278,11 @@ def finetune_transformer(request_headers):
             },
             search_alg=search_alg,
             progress_reporter=reporter,
-            keep_checkpoints_num=1,
-            checkpoint_score_attr=TARGET_METRIC,
-            stop=EarlyStopper(patience=PATIENCE, experiment_name=experiment_name, target_metric=TARGET_METRIC),
+            stop=early_stopper,
             log_to_file=True,
         )
         ray.shutdown()
-        return ray_local_dir / experiment_name
+        return str(early_stopper.best_checkpoint.absolute())
     else:
         config.update(DEFAULT_CONFIG)
 

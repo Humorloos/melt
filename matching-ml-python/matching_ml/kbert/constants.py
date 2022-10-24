@@ -8,7 +8,7 @@ ANALYSES_DIR = PROJECT_DIR / 'analyses'
 URI_PREFIX = "http://localhost:41193/"
 
 PATIENCE = 10
-MIN_DELTA = 0.001
+MIN_DELTA = 0.01
 MAX_VAL_SET_SIZE = 2 ** 12
 # MAX_VAL_SET_SIZE = 2 ** 10
 MAX_EPOCH_EXAMPLES = 2 ** 14
@@ -57,7 +57,7 @@ BATCH_SIZE = 32
 # For finetuning without HP optimization
 USE_WEIGHTED_LOSS = False
 
-TRACK = 'crosstrack'
+TRACK = 'opal_1_1'
 TEST_CASE = "crosstestcase"
 
 TM_DATA_DIR = RESOURCES_DIR / 'TM'
@@ -94,7 +94,7 @@ POSITIVE_CLASS_WEIGHT = 0.8439
 WEIGHT_DECAY = 0.08823
 
 MODEL_NAME = "albert-base-v2"
-CHECKPOINT_PATH = '/ceph/lloos/master_thesis/melt-target/ftTrack/anatomy_track/TextExtractorSet/trained_model_checkpoint/checkpoint'
+CHECKPOINT_PATH = '/ceph/lloos/master_thesis/melt-target/ftTrack/opal_1_1/TM/maxLength_256/tma_true/trained_model_checkpoint/checkpoint'
 
 DEFAULT_CONFIG = {
     'base_model': MODEL_NAME,
