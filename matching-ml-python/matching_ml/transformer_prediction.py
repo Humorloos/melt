@@ -1,3 +1,5 @@
+import os
+
 import json
 import logging
 import torch
@@ -22,8 +24,8 @@ def inner_transformers_prediction(request_headers):
 
 
 def transformer_predict(request_headers):
-    request_headers['cuda-visible-devices'] = request_headers['cuda-visible-devices'][0]
     transformers_init(request_headers)
+    os.environ["CUDA_VISIBLE_DEVICES"] = os.environ["CUDA_VISIBLE_DEVICES"][0]
     prediction_file_path = request_headers["prediction-file-path"]
     change_class = request_headers["change-class"].lower() == "true"
     training_arguments = json.loads(request_headers["training-arguments"])

@@ -11,6 +11,7 @@ from transformers import AutoTokenizer
 
 import wandb
 from MyDatasetWithLabels import MyDatasetWithLabels
+from kbert.constants import MAX_GPU_UTIL
 from kbert.tokenizer.TMTokenizer import TMTokenizer
 from kbert.utils import print_time
 
@@ -20,6 +21,7 @@ log = logging.getLogger('matching_ml.python_server_melt')
 def transformers_init(request_headers):
     if "cuda-visible-devices" in request_headers:
         os.environ["CUDA_VISIBLE_DEVICES"] = request_headers["cuda-visible-devices"]
+        hide_busy_gpus()
 
     if "transformers-cache" in request_headers:
         os.environ["TRANSFORMERS_CACHE"] = request_headers["transformers-cache"]
@@ -189,17 +191,40 @@ def initialize_wandb(name):
 
 
 def load_fragmented_df(dir, min_pos, min_neg, random_state: np.random.RandomState = None) -> pd.DataFrame:
+
     label_df = pd.DataFrame([{
-        'required_splits': ceil(n / 500),
         'dir': dir / f'label_{i}'
     } for i, n in enumerate([min_neg, min_pos])])
+    label_df['examples_per_split'] = label_df['dir'].apply(
+        lambda d: pd.read_pickle(next(d.iterdir())).shape[0]
+    )
     label_df['n_splits'] = label_df['dir'].apply(lambda d: len(list(iter(d.iterdir()))))
+    label_df['total_examples'] = label_df.apply(
+        lambda row: row['n_splits'] * row['examples_per_split'],
+        axis=1
+    )
+    total_neg_examples = label_df.loc[0, 'total_examples']
+    total_pos_examples = label_df.loc[1, 'total_examples']
+    pos_over_neg = min_pos / min_neg
+    neg_over_pos = min_neg / min_pos
+    if total_neg_examples < min_neg:
+        min_pos = int(pos_over_neg * total_neg_examples)
+        min_neg = total_neg_examples
+        if total_pos_examples < min_pos:
+            min_neg = int(neg_over_pos * total_pos_examples)
+            min_pos = total_pos_examples
+    label_df['min_examples'] = [min_neg, min_pos]
+
+    label_df['required_splits'] = label_df.apply(
+        lambda row: ceil(row['min_examples'] / row['examples_per_split']),
+        axis=1
+    )
     if random_state is None:
         choice = np.random.choice
     else:
         choice = random_state.choice
     label_df['split_ids'] = label_df[['required_splits', 'n_splits']].apply(
-        lambda row: choice(row['n_splits'], min(row['n_splits'], row['required_splits'])), axis=1
+        lambda row: choice(row['n_splits'], min(row['n_splits'], row['required_splits']), replace=False), axis=1
     )
     label_df['df'] = label_df[['dir', 'split_ids']].apply(
         lambda row: load_fragmented_df_for_label(row, random_state, min_neg, min_pos),
@@ -230,3 +255,12 @@ def pad_to_max_len(col: pd.Series):
         return col.apply(lambda a: np.pad(a, (0, max_len - a.shape[0])))
     elif dim == 2:
         return col.apply(lambda a: np.pad(a, (0, max_len - a.shape[0], 0, max_len - a.shape[0])))
+
+
+def hide_busy_gpus():
+    import GPUtil
+    gpu_ids = [int(i) for i in os.environ["CUDA_VISIBLE_DEVICES"].split(',')]
+    busy_gpus = [gs.id for gs in GPUtil.getGPUs() if gs.id in gpu_ids and gs.memoryUtil > MAX_GPU_UTIL]
+    print(f'visible gpus: {gpu_ids}, busy gpus: {busy_gpus}')
+    os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(i) for i in gpu_ids if i not in busy_gpus)
+    print(os.environ["CUDA_VISIBLE_DEVICES"])

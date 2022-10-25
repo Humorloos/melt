@@ -11,7 +11,6 @@ from math import ceil
 from pathlib import Path
 from pytorch_lightning.utilities.cloud_io import load
 from ray import tune
-from ray.tune import ExperimentAnalysis
 from sklearn.utils.class_weight import compute_class_weight
 from torch.nn.functional import pad
 from tqdm import tqdm
@@ -26,7 +25,6 @@ from custom_explore import custom_explore
 from kbert.constants import NUM_SAMPLES, DEBUG, DEFAULT_CONFIG, RESUME, \
     RUN_NAME, WORKERS_PER_TRIAL, GPUS_PER_TRIAL, PATIENCE, TARGET_METRIC, MAX_LENGTH, MIN_DELTA, MAX_EPOCH_EXAMPLES
 from kbert.tokenizer.constants import RANDOM_STATE
-from kbert.utils import get_best_trial
 from train_transformer import train_transformer
 from utils import transformers_init, get_index_file_path, get_timestamp, transformers_get_df
 
@@ -122,7 +120,7 @@ def finetune_transformer(request_headers):
         training_file=training_file_path
     )
     labels = encodings_df['label']
-    patience = min(PATIENCE, int(encodings_df.shape[0] / MAX_EPOCH_EXAMPLES))
+    patience = min(PATIENCE, ceil(encodings_df.shape[0] / MAX_EPOCH_EXAMPLES))
 
     val_file_path = training_file_path.parent / training_file_path.name.replace('train', 'val')
     if val_file_path.exists():
@@ -156,7 +154,7 @@ def finetune_transformer(request_headers):
         'data_dir': training_file,
         'save_dir': request_headers["resulting-model-location"],
         'index_file_path': index_file_path,
-        'gpus': request_headers.get("cuda-visible-devices", None),
+        'gpus': (request_headers.get("cuda-visible-devices", None)),
         'val_check_interval': val_check_interval,
     }
 

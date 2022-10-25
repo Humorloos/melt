@@ -1,3 +1,4 @@
+import ray
 import logging
 from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.trial import Trial
@@ -5,7 +6,7 @@ from typing import Dict, Optional, Callable
 
 import wandb
 from kbert.constants import TUNE_METRIC_MAPPING, DEBUG
-from utils import initialize_wandb
+from utils import initialize_wandb, hide_busy_gpus
 
 logger = logging.getLogger(__name__)
 

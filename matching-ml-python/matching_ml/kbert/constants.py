@@ -36,6 +36,8 @@ GPU = [0, 1, 2, 3, 4, 5, 6, 7]  # get_free_memory_by_gpu()
 # GPU = [0, 2, 4, 3]
 # GPU = [0, 5]
 # GPU = [5]
+
+MAX_GPU_UTIL = 0.7
 # GPUS_PER_TRIAL = 0.5  # 0.5 trains 2 models per GPU
 GPUS_PER_TRIAL = 1  # 0.5 trains 2 models per GPU
 

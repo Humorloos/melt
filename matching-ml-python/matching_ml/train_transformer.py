@@ -6,7 +6,6 @@ from pathlib import Path
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from ray import tune
-from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 from ray.tune.utils import wait_for_gpu
 from torch import nn
 
@@ -14,7 +13,7 @@ import wandb
 from CustomReportCheckpointCallback import CustomReportCheckpointCallback
 from MyDataModule import MyDataModule
 from kbert.constants import MIN_DELTA, PATIENCE, WORKERS_PER_TRIAL, DEBUG, MAX_EPOCHS, \
-    TUNE_METRIC_MAPPING
+    TUNE_METRIC_MAPPING, MAX_GPU_UTIL
 from kbert.models.sequence_classification.PLTransformer import PLTransformer
 from utils import get_timestamp
 
@@ -29,7 +28,7 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
         if gpus is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = gpus
     elif do_tune:
-        wait_for_gpu(target_util=0.7, retry=30, delay_s=2)
+        wait_for_gpu(target_util=MAX_GPU_UTIL, retry=2, delay_s=5)
     if do_tune:
         trial_name = tune.get_trial_name()
         wandb_logger = WandbLogger(
