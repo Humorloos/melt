@@ -424,7 +424,7 @@ class TMTokenizer:
     def extend_index(self, index_file):
         index_extension = pd.read_csv(index_file, index_col=0, names=['text'])
         index_extension['tokens'] = self.base_tokenizer.batch_encode_plus(
-            index_extension['text'].tolist(), add_special_tokens=False
+            index_extension['text'].fillna('UNK').tolist(), add_special_tokens=False
         ).input_ids
         index_extension['n_tokens'] = index_extension['tokens'].apply(len)
         new_index = pd.concat([self.token_index, index_extension])

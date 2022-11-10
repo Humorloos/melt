@@ -59,8 +59,8 @@ BATCH_SIZE = 32
 # For finetuning without HP optimization
 USE_WEIGHTED_LOSS = False
 
-TRACK = 'opal_1_1'
-TEST_CASE = "crosstestcase"
+TRACK = 'largebio'
+TEST_CASE = "fma-nci"
 
 TM_DATA_DIR = RESOURCES_DIR / 'TM'
 ORIGINAL_DATA_DIR = RESOURCES_DIR / 'original'
@@ -96,7 +96,7 @@ POSITIVE_CLASS_WEIGHT = 0.8439
 WEIGHT_DECAY = 0.08823
 
 MODEL_NAME = "albert-base-v2"
-CHECKPOINT_PATH = '/ceph/lloos/master_thesis/melt-target/ftTrack/opal_1_1/TM/maxLength_256/tma_true/trained_model_checkpoint/checkpoint'
+CHECKPOINT_PATH = '/ceph/lloos/master_thesis/melt-target/ftTrack/largebio/TM/maxLength_256/tma_true/trained_model_checkpoint/checkpoint'
 
 DEFAULT_CONFIG = {
     'base_model': MODEL_NAME,
@@ -137,3 +137,4 @@ TUNE_METRIC_MAPPING = {
     'train_bin_f1': 'train_bin_f1',
     'train_bin_f2': 'train_bin_f2',
 }
+DF_FILE_COLS = ['text_left', 'text_right', 'label']

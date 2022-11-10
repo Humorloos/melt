@@ -26,7 +26,8 @@ from kbert.constants import NUM_SAMPLES, DEBUG, DEFAULT_CONFIG, RESUME, \
     RUN_NAME, WORKERS_PER_TRIAL, GPUS_PER_TRIAL, PATIENCE, TARGET_METRIC, MAX_LENGTH, MIN_DELTA, MAX_EPOCH_EXAMPLES
 from kbert.tokenizer.constants import RANDOM_STATE
 from train_transformer import train_transformer
-from utils import transformers_init, get_index_file_path, get_timestamp, transformers_get_df
+from utils import transformers_init, get_index_file_path, get_timestamp, transformers_get_df, get_data_path, \
+    get_transformer_df
 
 MAX_CONDENSATION_FACTOR = 100
 
@@ -35,7 +36,6 @@ MIN_CONDENSATION_FACTOR = 1
 SPLIT_SIZE = 500
 
 log = logging.getLogger('python_server_melt')
-DF_FILE_COLS = ['text_left', 'text_right', 'label']
 INDEX_COLS = ['key', 'value']
 
 
@@ -78,11 +78,11 @@ def join_test_case_dfs(tm, track_dir, purpose):
 def get_cross_test_case_df_and_indices(purpose, tm, track_dir):
     test_case_dfs = []
     test_case_indices = []
-    data_path = (Path(''), Path('normalized') / 'all_targets' / 'isMulti_true')[tm] / 'posref0.2_all_negatives'
+    data_path = get_data_path(tm)
     for test_case_dir in track_dir.iterdir():
         if test_case_dir.name != 'crosstestcase':
             train_dir = test_case_dir / data_path
-            test_case_dfs.append(pd.read_csv(train_dir / f'{purpose}.csv', names=DF_FILE_COLS))
+            test_case_dfs.append(get_transformer_df(train_dir / f'{purpose}.csv'))
             if tm:
                 test_case_indices.append(pd.read_csv(train_dir / f'index_{purpose}.csv', names=INDEX_COLS))
     cross_test_case_df = pd.concat(test_case_dfs, ignore_index=True)

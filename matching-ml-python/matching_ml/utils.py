@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import logging
 import numpy as np
 import os
@@ -11,7 +13,7 @@ from transformers import AutoTokenizer
 
 import wandb
 from MyDatasetWithLabels import MyDatasetWithLabels
-from kbert.constants import MAX_GPU_UTIL
+from kbert.constants import MAX_GPU_UTIL, DF_FILE_COLS
 from kbert.tokenizer.TMTokenizer import TMTokenizer
 from kbert.utils import print_time
 
@@ -264,3 +266,11 @@ def hide_busy_gpus():
     print(f'visible gpus: {gpu_ids}, busy gpus: {busy_gpus}')
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(i) for i in gpu_ids if i not in busy_gpus)
     print(os.environ["CUDA_VISIBLE_DEVICES"])
+
+
+def get_data_path(tm):
+    return (Path(''), Path('normalized') / 'all_targets' / 'isMulti_true')[tm] / 'posref0.2_all_negatives'
+
+
+def get_transformer_df(df_dir):
+    return pd.read_csv(df_dir, names=DF_FILE_COLS)
