@@ -47,8 +47,10 @@ def transformers_read_file(file_path, with_labels):
 
 def transformers_get_df(file_path, with_labels=True):
     with print_time(f'loading df {file_path}'):
-        csv = pd.read_csv(file_path, names=['text_left', 'text_right'] + {True: ['label'], False: []}[with_labels])
-    return csv
+        df = pd.read_csv(file_path, names=['text_left', 'text_right'] + {True: ['label'], False: []}[with_labels])
+    df['text_left'] = df['text_left'].fillna('')
+    df['text_right'] = df['text_right'].fillna('')
+    return df
 
 
 def transformers_create_dataset(
