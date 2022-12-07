@@ -2,7 +2,7 @@ package de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtr
 
 import de.uni_mannheim.informatik.dws.melt.matching_data.TestCase;
 import de.uni_mannheim.informatik.dws.melt.matching_data.TrackRepository;
-import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.TextExtractorKBertImpl;
+import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.TextMoleculeExtractorImpl;
 import de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.kbert.KBertSentenceTransformersMatcher;
 import org.apache.commons.io.FileUtils;
 import org.apache.jena.ontology.OntModel;
@@ -41,7 +41,7 @@ public class KBertSentenceTransformersMatcherTest {
                         URL source = entry.getValue().toURL();
                         OntModel sourceOntology = getTransformedObject(source, OntModel.class, properties);
                         KBertSentenceTransformersMatcher matcher = new KBertSentenceTransformersMatcher(
-                                new TextExtractorKBertImpl(allTargets, normalized, multiText), "paraphrase-MiniLM-L6-v2");
+                                new TextMoleculeExtractorImpl(allTargets, normalized, multiText), "paraphrase-MiniLM-L6-v2");
                         File targetFile = new File(rootFile,
                                 KBertSentenceTransformersMatcher.NORMALIZED_MAP.get(normalized) + "/" +
                                         KBertSentenceTransformersMatcher.ALL_TARGETS_MAP.get(allTargets) + "/" +

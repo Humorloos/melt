@@ -102,7 +102,9 @@ def finetune_transformer(request_headers):
     log.info(f'Max batch size: {batch_size}')
     model_name = request_headers["model-name"]
     max_length = int(request_headers['max-length'])
-    tm_attention = is_tm_modification_enabled and request_headers.get('tm-attention', 'false').lower() == 'true'
+    tma_header = request_headers.get('tm-attention', 'false').lower()
+    tm_attention = is_tm_modification_enabled and tma_header == 'true'
+    soft_positioning = tma_header != 'hardpos'
     index_file_path = training_arguments.get('index_file', get_index_file_path(training_file))
 
     # Generate pre-tokenized file
@@ -117,6 +119,7 @@ def finetune_transformer(request_headers):
         model_name,
         pre_tokenized_dir=pre_tokenized_dir,
         tm_attention=tm_attention,
+        soft_positioning=soft_positioning,
         training_file=training_file_path
     )
     labels = encodings_df['label']
@@ -132,6 +135,7 @@ def finetune_transformer(request_headers):
             model_name,
             pre_tokenized_dir,
             tm_attention,
+            soft_positioning,
             val_file_path
         )
 
@@ -150,6 +154,7 @@ def finetune_transformer(request_headers):
         'num_labels': 2,
         'tm': is_tm_modification_enabled,
         'tm_attention': tm_attention,
+        'soft_positioning': soft_positioning,
         'max_input_length': max_length,
         'data_dir': training_file,
         'save_dir': request_headers["resulting-model-location"],
@@ -177,7 +182,7 @@ def finetune_transformer(request_headers):
         config['pos_frac'] = positive_fraction
 
         search_config = {
-            'batch_size': tune.quniform(2, batch_size, q=1),
+            'batch_size': tune.qloguniform(2, batch_size, q=1),
             'lr': tune.loguniform(1e-7, 1e-5),
             'weight_decay': tune.loguniform(1e-7, 1e-1),
             'dropout': tune.uniform(0.1, 0.5),
@@ -305,7 +310,7 @@ def finetune_transformer(request_headers):
 
 
 def pre_tokenize_file(index_file_path, is_tm_modification_enabled, max_length, model_name, pre_tokenized_dir: Path,
-                      tm_attention, training_file):
+                      tm_attention, soft_positioning, training_file):
     # todo: split training file into equal-size splits such that each split contains
     # min_c: min condensation factor
     # max_c: max condensation factor
@@ -347,12 +352,18 @@ def pre_tokenize_file(index_file_path, is_tm_modification_enabled, max_length, m
         print('All examples have already been tokenized, skipping pre-tokenization')
         return df
 
-    data_module = MyDataModule(test_data_path=training_file, batch_size=batch_test,
-                               # num_workers=int(os.cpu_count() / 2 ** 4),
-                               num_workers=12,
-                               tm=is_tm_modification_enabled,
-                               base_model=base_model_name, max_input_length=max_length, tm_attention=tm_attention,
-                               index_file_path=index_file_path)
+    data_module = MyDataModule(
+        test_data_path=training_file,
+        batch_size=batch_test,
+        # num_workers=int(os.cpu_count() / 2 ** 4),
+        num_workers=12,
+        tm=is_tm_modification_enabled,
+        base_model=base_model_name,
+        max_input_length=max_length,
+        tm_attention=tm_attention,
+        soft_positioning=soft_positioning,
+        index_file_path=index_file_path
+    )
     for label, label_dict in enumerate(label_dict_list):  # todo: undo reverse
         if label_dict['done']:
             print(f'All examples with label {label} have already been tokenized')

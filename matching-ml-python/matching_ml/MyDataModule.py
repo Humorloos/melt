@@ -31,6 +31,7 @@ class MyDataModule(pl.LightningDataModule):
             base_model=None,
             max_input_length=None,
             tm_attention=False,
+            soft_positioning=False,
             index_file_path=None,
             one_epoch=False,
             **kwargs
@@ -48,12 +49,14 @@ class MyDataModule(pl.LightningDataModule):
         self.test_data_path = test_data_path
         self.batch_size = batch_size
         self.num_workers = [num_workers, 0][num_workers == 1]
+        self.tm_attention = tm_attention
         if tokenize:
             self.tokenizer = initialize_tokenizer(
                 is_tm_modification_enabled=tm,
                 model_name=base_model,
                 max_length=max_input_length,
                 tm_attention=tm_attention,
+                soft_positioning=soft_positioning,
                 index_file_path=index_file_path
             )
         else:
@@ -66,23 +69,14 @@ class MyDataModule(pl.LightningDataModule):
             separate_val_file = val_data_path.exists()
             if self.tokenizer is None:
                 print('load pre-tokenized dataset')
-                # with open(self.train_data_path, 'rb') as train_data_in:
-                #     train_data_dict = torch.load(train_data_in)
-                # for k, v in train_data_dict.items():
-                #     dim = len(v[0].shape)
-                #     if dim == 1:
-                #         concatenated_inputs = torch.cat(v)
-                #     elif dim == 2:
-                #         concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[1])) for a in v])
-                #     else:
-                #         concatenated_inputs = torch.cat([pad(a, (0, max_len - a.shape[2], 0, max_len - a.shape[2])) for a in v])
-                #     train_data_dict[k] = list(concatenated_inputs.detach().numpy())
-                #
-                # df = pd.DataFrame(train_data_dict)
                 n_pos = ceil(1 / (condensation_factor + 1) * MAX_EPOCH_EXAMPLES)
                 n_neg = MAX_EPOCH_EXAMPLES - n_pos
                 with print_time('loading fragmented pickled train df'):
                     df = load_fragmented_df(dir=self.train_data_path, min_pos=n_pos, min_neg=n_neg)
+                    if self.tm_attention is False and 'attention_mask' in df.columns:
+                        df = df.drop(columns='attention_mask')
+                    elif self.tm_attention == 'hardpos' and 'position_ids' in df.columns:
+                        df = df.drop(columns='position_ids')
             else:
                 print("Prepare transformer dataset")
                 df = transformers_get_df(self.train_data_path, True)
@@ -101,23 +95,10 @@ class MyDataModule(pl.LightningDataModule):
                             min_neg=n_neg,
                             random_state=RANDOM_STATE
                         )
-                        # # following lines are for analysis
-                        # from kbert.constants import MODEL_NAME
-                        # tokenizer = initialize_tokenizer(
-                        #     is_tm_modification_enabled=False,
-                        #     model_name=MODEL_NAME,
-                        #     max_length=256,
-                        #     tm_attention=False,
-                        #     index_file_path=None
-                        # )
-                        # pos_examples = df_val.loc[df_val['label'] == 1].reset_index(drop=True)
-                        # pos_examples[['text_left', 'text_right']] = pd.DataFrame(
-                        #     pd.Series(tokenizer.batch_decode(pos_examples['input_ids'])).str.split('\[SEP\]').tolist(),
-                        #     columns=['text_left', 'text_right']
-                        # )
-                        # import numpy as np
-                        # masks = np.stack(pos_examples['attention_mask'].values)
-                        # types = np.stack(pos_examples['token_type_ids'].values)
+                        if self.tm_attention is False and 'attention_mask' in df_val.columns:
+                            df_val = df_val.drop(columns='attention_mask')
+                        elif self.tm_attention == 'hardpos' and 'position_ids' in df_val.columns:
+                            df_val = df_val.drop(columns='position_ids')
                 else:
                     df_val = transformers_get_df(val_data_path, True)
                 if df_val.shape[0] > val_set_size:
@@ -167,13 +148,6 @@ class MyDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         train_size = self.data_train.shape[0]
-        # if epoch is not None:
-        #     df_train = self.data_train.sample(frac=1, random_state=RANDOM_STATE)
-        #     n_train_splits = ceil(df_train.shape[0] / MAX_EPOCH_EXAMPLES)
-        #     current_split_offset = epoch % n_train_splits
-        #     split_start = current_split_offset * MAX_EPOCH_EXAMPLES
-        #     split_end = (current_split_offset + 1) * MAX_EPOCH_EXAMPLES
-        #     df_train = df_train.iloc[split_start:split_end]
         if train_size > MAX_EPOCH_EXAMPLES:
             fraction_2_sample = MAX_EPOCH_EXAMPLES / train_size
             # sample without random state to get different sample each time

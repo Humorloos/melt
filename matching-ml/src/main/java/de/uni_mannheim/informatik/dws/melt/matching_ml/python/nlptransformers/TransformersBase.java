@@ -4,7 +4,7 @@ import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.MatcherYAAAJena;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractor;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractorMap;
-import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextExtractorKbert;
+import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextMoleculeExtractor;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -42,13 +42,13 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     protected TransformersMultiProcessing multiProcessing;
     protected boolean multipleTextsToMultipleExamples;
     protected boolean tm;
-    protected boolean tmAttention;
+    protected Boolean tmAttention;
 
-    public boolean isTmAttention() {
+    public Boolean isTmAttention() {
         return tmAttention;
     }
 
-    public void setTmAttention(boolean tmAttention) {
+    public void setTmAttention(Boolean tmAttention) {
         this.tmAttention = tmAttention;
     }
 
@@ -499,7 +499,7 @@ public abstract class TransformersBase extends MatcherYAAAJena {
             Files.createDirectories(indexOutputFile.getParentFile().toPath());
             try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
                 AtomicInteger linesWritten = new AtomicInteger();
-                TextExtractorKbert tmExtractor = (TextExtractorKbert) this.simpleExtractor;
+                TextMoleculeExtractor tmExtractor = (TextMoleculeExtractor) this.simpleExtractor;
                 tmExtractor.getIndexStream().forEach(x -> {
                     printWriter.println(x);
                     linesWritten.addAndGet(1);

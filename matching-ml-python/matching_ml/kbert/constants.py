@@ -28,7 +28,8 @@ RESUME = False  # True resumes at last checkpoint, False starts new trial
 # RUN_NAME = '2022-09-26_15.29'  # original 5% f2
 # RUN_NAME = '2022-09-27_09.17'  # original 5% f1
 # RUN_NAME = '2022-09-30_17.47'  # original 20% f1
-RUN_NAME = '2022-10-14_16.27'
+RUN_NAME = '2022-10-19_11.49'  # TM 20% f1 -> this for test against synthetic original
+# RUN_NAME = '2022-12-04_19.19'
 
 # from scheduler.utils.utils import get_free_memory_by_gpu
 GPU = [0, 1, 2, 3, 4, 5, 6, 7]  # get_free_memory_by_gpu()
@@ -37,15 +38,18 @@ GPU = [0, 1, 2, 3, 4, 5, 6, 7]  # get_free_memory_by_gpu()
 # GPU = [0, 5]
 # GPU = [5]
 
-MAX_GPU_UTIL = 0.7
+MAX_GPU_UTIL = 0.8
 # GPUS_PER_TRIAL = 0.5  # 0.5 trains 2 models per GPU
 GPUS_PER_TRIAL = 1  # 0.5 trains 2 models per GPU
 
 # Independent variables of experiments
 TM = True
-TMA = True
 # TM = False
+# TMA = True
 # TMA = False
+TMA = 'hardpos'
+# SYNTHETIC_ORIGINAL = True
+SYNTHETIC_ORIGINAL = False
 REFERENCE_FRACTION = 0.2
 # REFERENCE_FRACTION = 0.05
 # REFERENCE_FRACTION = 1.0
@@ -59,12 +63,13 @@ BATCH_SIZE = 32
 # For finetuning without HP optimization
 USE_WEIGHTED_LOSS = False
 
-TRACK = 'largebio'
-TEST_CASE = "fma-nci"
+TRACK = 'crosstrack'
+TEST_CASE = "crosstestcase"
 
 TM_DATA_DIR = RESOURCES_DIR / 'TM'
 ORIGINAL_DATA_DIR = RESOURCES_DIR / 'original'
-TRACK_PATH = Path({True: 'TM', False: 'original'}[TM]) / TRACK
+ORIGINAL_FROM_TM_DATA_DIR = RESOURCES_DIR / 'original_from_TM'
+TRACK_PATH = Path(['original' + ['', '_from_TM'][SYNTHETIC_ORIGINAL], 'TM'][TM]) / TRACK
 TESTCASE_PATH = TRACK_PATH / TEST_CASE
 NORMALIZATION = 'normalized'  # normalized or raw
 TM_DATA_SPECIFICATION_PATH = Path(NORMALIZATION) / 'all_targets' / f'isMulti_{str(IS_MULTI).lower()}'

@@ -16,18 +16,34 @@ from kbert.tokenizer.utils import add_statement_texts, get_target_and_statement_
 
 class TMTokenizer:
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, index_files: List[Path] = None, max_length=None,
-                        tm_attention=True, *inputs, **kwargs):
+    def from_pretrained(
+            cls,
+            pretrained_model_name_or_path,
+            index_files: List[Path] = None,
+            max_length=None,
+            tm_attention=True,
+            soft_positioning=True,
+            *inputs,
+            **kwargs
+    ):
         tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
-        return TMTokenizer(tokenizer, index_files, max_length, tm_attention)
+        return TMTokenizer(tokenizer, index_files, max_length, tm_attention, soft_positioning)
 
-    def __init__(self, tokenizer, index_files: List[Path] = None, max_length=None, tm_attention=True):
+    def __init__(
+            self,
+            tokenizer,
+            index_files: List[Path] = None,
+            max_length=None,
+            tm_attention=True,
+            soft_positioning=True
+    ):
         if max_length is not None:
             tokenizer.model_max_length = max_length
 
         self.base_tokenizer = tokenizer
         self.token_index = pd.DataFrame(columns=['text', 'tokens', 'n_tokens'])
         self.tm_attention = tm_attention
+        self.soft_positioning = soft_positioning
         if index_files is not None:
             for f in index_files:
                 self.extend_index(f)
@@ -56,7 +72,8 @@ class TMTokenizer:
         if max_length is None:
             max_length = self.base_tokenizer.model_max_length
         input_ids = []
-        position_ids = []
+        if self.soft_positioning:
+            position_ids = []
         if self.tm_attention:
             attention_masks = []
         targets_mask = []
@@ -212,36 +229,39 @@ class TMTokenizer:
                     shape_token_by_statement_by_role_by_molecule_pair,
                     statement_offset_by_molecule_pair
                 )
-
-            # Compute position ids
-            position_ids_batch = np.zeros(shape_molecules_by_max_seq_length, dtype=int)
-            position_offset_first_token_by_molecule = np.repeat(1, n_molecules)
-
-            fill_in_molecule_position_ids(
-                fits_token_in_input_by_statement_by_role_by_molecule=fits_token_in_input_by_statement_by_role_by_molecule,
-                fits_token_in_input_by_target_by_molecule=fits_token_in_input_by_target_by_molecule,
-                offset_token_by_statement_by_role_by_molecule=offset_token_by_statement_by_role_by_molecule,
-                position_ids=position_ids_batch,
-                x_target_tokens=x_target_tokens,
-                y_molecule_4_target_tokens=y_molecule_4_target_tokens,
-                position_offset_first_token_by_molecule=position_offset_first_token_by_molecule,
-            )
-
-            if text_pair is not None:
-                # fill in position ids of sep tokens
-                position_offset_sep_token_by_molecule = position_ids_batch.max(1) + 1
-                position_ids_batch[molecule_range, sep_token_offset_by_molecule] = position_offset_sep_token_by_molecule
-                position_offset_first_token_by_molecule_pair = position_offset_sep_token_by_molecule + 1
+            if self.soft_positioning:
+                # Compute position ids
+                position_ids_batch = np.zeros(shape_molecules_by_max_seq_length, dtype=int)
+                position_offset_first_token_by_molecule = np.repeat(1, n_molecules)
 
                 fill_in_molecule_position_ids(
-                    fits_token_in_input_by_statement_by_role_by_molecule=fits_token_in_input_by_statement_by_role_by_molecule_pair,
-                    fits_token_in_input_by_target_by_molecule=fits_token_in_input_by_target_by_molecule_pair,
-                    offset_token_by_statement_by_role_by_molecule=offset_token_by_statement_by_role_by_molecule_pair,
+                    fits_token_in_input_by_statement_by_role_by_molecule=fits_token_in_input_by_statement_by_role_by_molecule,
+                    fits_token_in_input_by_target_by_molecule=fits_token_in_input_by_target_by_molecule,
+                    offset_token_by_statement_by_role_by_molecule=offset_token_by_statement_by_role_by_molecule,
                     position_ids=position_ids_batch,
-                    x_target_tokens=x_target_tokens_pair,
-                    y_molecule_4_target_tokens=y_molecule_4_target_tokens_pair,
-                    position_offset_first_token_by_molecule=position_offset_first_token_by_molecule_pair
+                    x_target_tokens=x_target_tokens,
+                    y_molecule_4_target_tokens=y_molecule_4_target_tokens,
+                    position_offset_first_token_by_molecule=position_offset_first_token_by_molecule,
                 )
+
+                if text_pair is not None:
+                    # fill in position ids of sep tokens
+                    position_offset_sep_token_by_molecule = position_ids_batch.max(1) + 1
+                    position_ids_batch[
+                        molecule_range,
+                        sep_token_offset_by_molecule
+                    ] = position_offset_sep_token_by_molecule
+                    position_offset_first_token_by_molecule_pair = position_offset_sep_token_by_molecule + 1
+
+                    fill_in_molecule_position_ids(
+                        fits_token_in_input_by_statement_by_role_by_molecule=fits_token_in_input_by_statement_by_role_by_molecule_pair,
+                        fits_token_in_input_by_target_by_molecule=fits_token_in_input_by_target_by_molecule_pair,
+                        offset_token_by_statement_by_role_by_molecule=offset_token_by_statement_by_role_by_molecule_pair,
+                        position_ids=position_ids_batch,
+                        x_target_tokens=x_target_tokens_pair,
+                        y_molecule_4_target_tokens=y_molecule_4_target_tokens_pair,
+                        position_offset_first_token_by_molecule=position_offset_first_token_by_molecule_pair
+                    )
             if self.tm_attention:
                 # initialize attention masks
                 attention_masks_batch = self.get_attention_masks(
@@ -293,17 +313,18 @@ class TMTokenizer:
                 n_tokens_by_molecule_pair = n_target_tokens_by_molecule_pair + n_statement_tokens_by_molecule_pair
                 token_type_ids_batch = np.zeros(shape_molecules_by_max_seq_length)
                 type_id_holes_y = np.concatenate([np.repeat(k, v) for k, v in enumerate(n_tokens_by_molecule_pair)])
-                type_id_holes_x = np.concatenate([np.arange(offset, offset + n_tokens) for offset, n_tokens in zip(sep_token_offset_by_molecule + 1, n_tokens_by_molecule_pair)])
+                type_id_holes_x = np.concatenate([np.arange(offset, offset + n_tokens) for offset, n_tokens in
+                                                  zip(sep_token_offset_by_molecule + 1, n_tokens_by_molecule_pair)])
                 token_type_ids_batch[type_id_holes_y, type_id_holes_x] = 1
                 token_type_ids.append(token_type_ids_batch)
             input_ids.append(input_ids_batch)
-            position_ids.append(position_ids_batch)
+            if self.soft_positioning:
+                position_ids.append(position_ids_batch)
             if self.tm_attention:
                 attention_masks.append(attention_masks_batch)
 
         encoding_data = {
             'input_ids': torch.IntTensor(np.concatenate(input_ids)),
-            'position_ids': torch.IntTensor(np.concatenate(position_ids)),
         }
         if text_pair is None:
             encoding_data['targets_mask'] = torch.IntTensor(np.concatenate(targets_mask))
@@ -311,6 +332,8 @@ class TMTokenizer:
             encoding_data['token_type_ids'] = torch.IntTensor(np.concatenate(token_type_ids))
         if self.tm_attention:
             encoding_data['attention_mask'] = torch.IntTensor(np.concatenate(attention_masks))
+        if self.soft_positioning:
+            encoding_data['position_ids'] = torch.IntTensor(np.concatenate(position_ids))
 
         return BatchEncoding(data=encoding_data)
 

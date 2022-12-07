@@ -80,6 +80,7 @@ def train_transformer(config, checkpoint_dir=None, do_tune=False):
         base_model=config['base_model'],
         max_input_length=max_length,
         tm_attention=config['tm_attention'],
+        soft_positioning=config['soft_positioning'],
         index_file_path=config['index_file_path'],
         one_epoch=do_tune,
     )

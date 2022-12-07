@@ -43,6 +43,7 @@ class PLTransformer(pl.LightningModule):
         self.validation_start = None
 
     def forward(self, batch, *args, **kwargs):
+        # todo: checkout what context_layer looks like when with tm attention and when without, without somehow throws error there currently: C:/Users/Lukas/AppData/Local/JetBrains/IntelliJIdea2022.1/remote_sources/558685107/428031926/transformers/models/albert/modeling_albert.py:371
         return self.base_model(**batch)
 
     def training_step(self, batch):

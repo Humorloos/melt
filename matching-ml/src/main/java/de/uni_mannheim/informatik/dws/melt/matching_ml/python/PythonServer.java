@@ -277,7 +277,7 @@ public class PythonServer {
         request.addHeader("tmp-dir", getCanonicalPath(FileUtil.getUserTmpFolder()));
         request.addHeader("multi-processing", base.getMultiProcessing().toString());
         request.addHeader("tm", Boolean.toString(base.isTM()));
-        request.addHeader("tm-attention", Boolean.toString(base.isTmAttention()));
+        request.addHeader("tm-attention", base.isTmAttention() == null ? "hardpos" : Boolean.toString(base.isTmAttention()));
         request.addHeader("max-length", base.getMaxLength().toString());
 
         String cudaVisibleDevices = base.getCudaVisibleDevices();

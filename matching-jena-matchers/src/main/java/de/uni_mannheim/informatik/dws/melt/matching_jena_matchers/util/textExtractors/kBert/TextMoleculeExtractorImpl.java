@@ -2,7 +2,7 @@ package de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtr
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextExtractorKbert;
+import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextMoleculeExtractor;
 import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.processedNode.ProcessedLiteral;
 import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.processedNode.ProcessedRDFNode;
 import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.processedNode.ProcessedResource;
@@ -25,18 +25,23 @@ import java.util.stream.Stream;
 import static de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.kbert.KBertSentenceTransformersMatcher.streamFromIterator;
 import static org.apache.commons.lang3.StringEscapeUtils.escapeCsv;
 
-public class TextExtractorKBertImpl implements TextExtractorKbert {
+public class TextMoleculeExtractorImpl implements TextMoleculeExtractor {
     private final boolean useAllTargets;
     private final boolean normalize;
     private final boolean multiText;
 
+    private boolean useIndex = true;
     private Set<ProcessedRDFNode> indexCache;
 
-    public TextExtractorKBertImpl(boolean useAllTargets, boolean normalize, boolean multiText) {
+    public TextMoleculeExtractorImpl(boolean useAllTargets, boolean normalize, boolean multiText) {
         this.useAllTargets = useAllTargets;
         this.normalize = normalize;
         this.multiText = multiText;
         this.indexCache = new HashSet<>();
+    }
+
+    public void setUseIndex(boolean useIndex) {
+        this.useIndex = useIndex;
     }
 
     @Override
@@ -58,6 +63,7 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
     }
 
     public Set<Map<String, Set<?>>> moleculesFromResource(Resource targetResource) {
+        //
         Map<Object, Set<ObjectStatement<? extends ProcessedRDFNode>>> processedObjectStatements =
                 getObjectStatementStream(targetResource)
                         .filter(statement -> !statement.getObject().isAnon())
@@ -66,11 +72,17 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
                                 new LiteralObjectStatement(statement) :
                                 new ResourceObjectStatement(statement))
                         .collect(Collectors.groupingBy(ObjectStatement::getClass, Collectors.mapping(Function.identity(), Collectors.toSet())));
+
+        // Add predicates and objects to index
         processedObjectStatements.values().forEach(
                 objectSatementSet -> objectSatementSet.forEach(
                         objectStatement -> {
-                            indexCache.add(objectStatement.getPredicate());
-                            indexCache.add(objectStatement.getNeighbor());
+                            if (useIndex) {
+                                indexCache.add(objectStatement.getPredicate());
+                                indexCache.add(objectStatement.getNeighbor());
+                            } else {
+                                objectStatement.setUseIndex(false);
+                            }
                         }
                 )
         );
@@ -91,7 +103,8 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
                 targets = Set.of(new ProcessedResource<>(targetResource));
             }
         }
-        indexCache.addAll(targets);
+        // Add target labels to index
+        if (useIndex) indexCache.addAll(targets);
 
         // nest targets for extracting multiple molecules if needed
         Set<Set<? extends ProcessedRDFNode>> nestedTargets;
@@ -106,8 +119,13 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
                 .filter(statement -> !statement.getSubject().isAnon())
                 .map(stmt -> {
                     SubjectStatement subjectStatement = new SubjectStatement(stmt);
-                    indexCache.add(subjectStatement.getPredicate());
-                    indexCache.add(subjectStatement.getNeighbor());
+                    // Add predicate and subject to index
+                    if (useIndex) {
+                        indexCache.add(subjectStatement.getPredicate());
+                        indexCache.add(subjectStatement.getNeighbor());
+                    } else {
+                        subjectStatement.setUseIndex(false);
+                    }
                     return subjectStatement.getRow();
                 })
                 .collect(Collectors.toSet());
@@ -123,7 +141,9 @@ public class TextExtractorKBertImpl implements TextExtractorKbert {
                     .collect(Collectors.toSet());
 
             return Map.of(
-                    "t", targetSet.stream().map(ProcessedRDFNode::getKey).collect(Collectors.toSet()),
+                    "t", targetSet.stream()
+                            .map(useIndex ? ProcessedRDFNode::getKey : ProcessedRDFNode::getNormalized)
+                            .collect(Collectors.toSet()),
                     "s", SetUtils.union(subjectStatementRows, objectStatementRows)
             );
         }).collect(Collectors.toSet());

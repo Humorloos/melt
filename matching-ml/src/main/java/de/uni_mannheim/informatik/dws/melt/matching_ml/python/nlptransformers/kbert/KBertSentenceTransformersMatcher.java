@@ -2,7 +2,7 @@ package de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.k
 
 import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.ResourcesExtractor;
-import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextExtractorKbert;
+import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextMoleculeExtractor;
 import de.uni_mannheim.informatik.dws.melt.matching_ml.python.PythonServer;
 import de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.SentenceTransformersMatcher;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Alignment;
@@ -26,9 +26,9 @@ public class KBertSentenceTransformersMatcher extends SentenceTransformersMatche
     public static final Map<Boolean, String> NORMALIZED_MAP = Map.of(true, "normalized", false, "raw");
     public static final Map<Boolean, String> ALL_TARGETS_MAP = Map.of(true, "all_targets", false, "one_target");
 
-    protected TextExtractorKbert extractor;
+    protected TextMoleculeExtractor extractor;
 
-    public KBertSentenceTransformersMatcher(TextExtractorKbert extractor, String modelName) {
+    public KBertSentenceTransformersMatcher(TextMoleculeExtractor extractor, String modelName) {
         super(extractor, modelName);
         this.setTM(true);
         this.extractor = extractor;
@@ -75,7 +75,7 @@ public class KBertSentenceTransformersMatcher extends SentenceTransformersMatche
         return inputAlignment;
     }
 
-    public TextExtractorKbert getExtractor() {
+    public TextMoleculeExtractor getExtractor() {
         return extractor;
     }
 
@@ -84,11 +84,11 @@ public class KBertSentenceTransformersMatcher extends SentenceTransformersMatche
             throws IOException {
         //LOGGER.info("Write text to file {}", file);
         AtomicInteger linesWritten = new AtomicInteger();
-        TextExtractorKbert textExtractorKbert = this.getExtractor();
+        TextMoleculeExtractor textMoleculeExtractor = this.getExtractor();
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(file.toPath()), StandardCharsets.UTF_8))) {
             streamFromIterator(extractor.extract(model, parameters))
                     .filter(RDFNode::isURIResource)
-                    .forEach(r -> textExtractorKbert.extract(r)
+                    .forEach(r -> textMoleculeExtractor.extract(r)
                             .forEach(line -> {
                                 try {
                                     writer.write(escapeCsv(r.getURI()) + "," + escapeCsv(line) + NEWLINE);
@@ -102,7 +102,7 @@ public class KBertSentenceTransformersMatcher extends SentenceTransformersMatche
         File indexOutputFile = new File(file.getParentFile(), "index_" + file.getName());
         Files.createDirectories(indexOutputFile.getParentFile().toPath());
         try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
-            textExtractorKbert.getIndexStream().forEach(printWriter::println);
+            textMoleculeExtractor.getIndexStream().forEach(printWriter::println);
         }
         return linesWritten.get();
     }

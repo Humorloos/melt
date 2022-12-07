@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import logging
 import numpy as np
 import os
@@ -7,6 +5,7 @@ import pandas as pd
 import pathlib
 from datetime import datetime, timezone, timedelta
 from math import ceil
+from pathlib import Path
 from scipy.special import softmax
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
 from transformers import AutoTokenizer
@@ -136,14 +135,23 @@ def transformers_get_training_arguments(
     return training_args
 
 
-def initialize_tokenizer(is_tm_modification_enabled, model_name, max_length, tm_attention, index_file_path=None):
+def initialize_tokenizer(
+        is_tm_modification_enabled,
+        model_name,
+        max_length,
+        tm_attention,
+        soft_positioning,
+        index_file_path=None
+):
     log.info('load tokenizer')
     with print_time('loading tokenizer'):
         if is_tm_modification_enabled:
             tokenizer = TMTokenizer.from_pretrained(
-                model_name, index_files=[index_file_path],
+                model_name,
+                index_files=[index_file_path],
                 max_length=max_length,
-                tm_attention=tm_attention
+                tm_attention=tm_attention,
+                soft_positioning=soft_positioning,
             )
         else:
             tokenizer = AutoTokenizer.from_pretrained(model_name)
