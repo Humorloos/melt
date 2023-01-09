@@ -28,7 +28,9 @@ RESUME = False  # True resumes at last checkpoint, False starts new trial
 # RUN_NAME = '2022-09-26_15.29'  # original 5% f2
 # RUN_NAME = '2022-09-27_09.17'  # original 5% f1
 # RUN_NAME = '2022-09-30_17.47'  # original 20% f1
-RUN_NAME = '2022-10-19_11.49'  # TM 20% f1 -> this for test against synthetic original
+# RUN_NAME = '2022-10-19_11.49'  # TM 20% f1 -> this for test against synthetic original
+RUN_NAME = '2022-12-08_13.07'  # TM 20% f1 hard positions
+# RUN_NAME = '2022-12-06_20.08'  # TM 20% f1 tma false
 # RUN_NAME = '2022-12-04_19.19'
 
 # from scheduler.utils.utils import get_free_memory_by_gpu
@@ -50,6 +52,7 @@ TM = True
 TMA = 'hardpos'
 # SYNTHETIC_ORIGINAL = True
 SYNTHETIC_ORIGINAL = False
+
 REFERENCE_FRACTION = 0.2
 # REFERENCE_FRACTION = 0.05
 # REFERENCE_FRACTION = 1.0

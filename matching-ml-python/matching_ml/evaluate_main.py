@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 from pytorch_lightning import Trainer
@@ -12,7 +13,8 @@ from kbert.models.sequence_classification.find_max_batch_size import find_max_ba
 from kbert.utils import get_best_trial
 from transformer_finetuning import finetune_transformer
 from utils import transformers_init
-#%%
+
+# %%
 
 logging.basicConfig(
     handlers=[
@@ -26,10 +28,8 @@ logging.addLevelName(logging.WARNING, "WARN")
 logging.addLevelName(logging.CRITICAL, "FATAL")
 
 if __name__ == '__main__':
-    transformers_init({'cuda-visible-devices': ','.join(str(g) for g in GPU)})
-
     model_name = MODEL_NAME
-    test_file_name = 'test_14.csv'
+    test_file_name = 'test_17.csv'  # file for synthetic evaluation: test_17.csv
     test_file = str(DATA_DIR_WITH_FRACTION / test_file_name)
     index_file_path = DATA_DIR_WITH_FRACTION / f'index_{test_file_name}'
 
@@ -42,15 +42,16 @@ if __name__ == '__main__':
     base_model = model.base_model.name_or_path
     max_input_length = model.hparams.config['max_input_length']
     tm_attention = model.hparams.config['tm_attention']
+    soft_positioning = model.hparams.config.get('soft_positioning', True)
     datamodule = MyDataModule(test_data_path=test_file, num_workers=WORKERS_PER_TRIAL, tm=tm, base_model=base_model,
                               max_input_length=max_input_length, tm_attention=tm_attention,
-                              index_file_path=index_file_path)
+                              soft_positioning=soft_positioning, index_file_path=index_file_path, batch_size=32)
+    transformers_init({'cuda-visible-devices': ','.join(str(g) for g in GPU)})
     trainer_kwargs = {
         'accelerator': 'gpu',
-        'auto_select_gpus': True,
         'max_epochs': -1,
         'logger': False,
-        'devices': 1
+        'devices': '1' # set this to a gpu id that works
     }
     trainer = Trainer(**trainer_kwargs)
     trainer.test(model, datamodule=datamodule)

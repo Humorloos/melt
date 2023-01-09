@@ -103,7 +103,7 @@ def finetune_transformer(request_headers):
     model_name = request_headers["model-name"]
     max_length = int(request_headers['max-length'])
     tma_header = request_headers.get('tm-attention', 'false').lower()
-    tm_attention = is_tm_modification_enabled and tma_header == 'true'
+    tm_attention = is_tm_modification_enabled and tma_header != 'false'
     soft_positioning = tma_header != 'hardpos'
     index_file_path = training_arguments.get('index_file', get_index_file_path(training_file))
 
