@@ -16,7 +16,6 @@ from gensim import corpora, models, similarities, matutils
 from scipy import linalg
 
 from FlushingReporter import FlushingReporter
-from kbert.models.sequence_classification.find_max_batch_size import find_max_batch_size
 from transformer_finetuning import inner_transformers_finetuning
 from transformer_prediction import inner_transformers_prediction
 from utils import transformers_init, get_index_file_path, transformers_read_file, transformers_create_dataset, \
@@ -1982,9 +1981,9 @@ def shutdown():
     request.environ.get("werkzeug.server.shutdown")()
 
 
-@app.route('/tm-find-max-batch-size', methods=['GET'])
-def tm_find_max_batch_size():
-    return find_max_batch_size(request.headers)
+# @app.route('/tm-find-max-batch-size', methods=['GET'])
+# def tm_find_max_batch_size():
+#     return find_max_batch_size(request.headers)
 
 
 def main():

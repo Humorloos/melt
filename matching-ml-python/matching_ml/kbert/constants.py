@@ -47,9 +47,9 @@ GPUS_PER_TRIAL = 1  # 0.5 trains 2 models per GPU
 # Independent variables of experiments
 TM = True
 # TM = False
-# TMA = True
+TMA = True
 # TMA = False
-TMA = 'hardpos'
+# TMA = 'hardpos'
 # SYNTHETIC_ORIGINAL = True
 SYNTHETIC_ORIGINAL = False
 

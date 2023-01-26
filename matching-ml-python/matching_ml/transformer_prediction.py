@@ -30,7 +30,9 @@ def transformer_predict(request_headers):
     change_class = request_headers["change-class"].lower() == "true"
     training_arguments = json.loads(request_headers["training-arguments"])
     is_tm_modification_enabled = request_headers.get('tm', 'false').lower() == 'true'
-    tm_attention = request_headers.get('tm-attention', 'false').lower() == 'true'
+    tma_header = request_headers.get('tm-attention', 'false').lower()
+    tm_attention = is_tm_modification_enabled and tma_header != 'false'
+    soft_positioning = tma_header != 'hardpos'
     max_length = int(request_headers['max-length'])
     tma_text = {True: ' and TM attention mask', False: ' but without attention mask'}[tm_attention]
     tm_text = {
@@ -48,6 +50,7 @@ def transformer_predict(request_headers):
         base_model=model_name,
         max_input_length=max_length,
         tm_attention=tm_attention,
+        soft_positioning=soft_positioning,
         index_file_path=training_arguments.get('index_file', get_index_file_path(prediction_file_path))
     )
     trainer_kwargs = {
