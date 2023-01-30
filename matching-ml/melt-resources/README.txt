@@ -1,0 +1,1 @@
+This is the directory where you need to add the python_command.txt file with the path to your python interpreter.
