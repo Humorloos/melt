@@ -46,7 +46,9 @@ public class URL2PropertiesTransformer extends AbstractTypeTransformer<URL, Prop
         
         try{
             Properties p = new Properties();
-            p.putAll(new JSONObject(content).toMap());
+            JSONObject jsonObject = new JSONObject(content);
+            jsonObject.keys().forEachRemaining(k -> p.put(k, jsonObject.get(k)));
+//            p.putAll(jsonObject.toMap());
             return p;
         }catch(JSONException ex){
             LOGGER.debug("Could not parse JSON - continue...");

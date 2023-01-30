@@ -4,6 +4,9 @@ import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtra
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.Statement;
 
+/**
+ * representation of a subject statement
+ */
 public class SubjectStatement extends ProcessedStatement<ProcessedResource<Resource>> {
 
     public SubjectStatement(Statement statement) {

@@ -2,32 +2,23 @@ package de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers;
 
 import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_base.Filter;
+import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractor;
+import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractorMap;
+import de.uni_mannheim.informatik.dws.melt.matching_ml.python.PythonServer;
+import de.uni_mannheim.informatik.dws.melt.matching_ml.python.PythonServerException;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Alignment;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Correspondence;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.jena.ontology.OntModel;
 import org.apache.jena.rdf.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractor;
-import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractorMap;
-import de.uni_mannheim.informatik.dws.melt.matching_ml.python.PythonServer;
-import de.uni_mannheim.informatik.dws.melt.matching_ml.python.PythonServerException;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
 
 /**
  * This filter extracts the corresponding text for a resource (with the specified and customizable extractor) given all correspondences in the input alignment.
@@ -133,6 +124,7 @@ public class TransformersFilter extends TransformersBase implements Filter {
      * @throws IOException in case the writing fails.
      */
     public Map<Correspondence, List<Integer>> createPredictionFile(OntModel source, OntModel target, Alignment predictionAlignment, File outputFile, boolean append) throws IOException {
+        LOGGER.info("Creating prediction file");
         Map<Correspondence, List<Integer>> map = new HashMap<>();
         int i = 0;
         try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFile, append), StandardCharsets.UTF_8))){
@@ -159,6 +151,8 @@ public class TransformersFilter extends TransformersBase implements Filter {
                     }
                 }
             }
+            // for tm modification, write index file
+            printIndexIfNeeded(outputFile, cache);
         }
         LOGGER.info("Wrote {} examples to prediction file {}", i, outputFile);
         return map;

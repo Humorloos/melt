@@ -272,6 +272,24 @@ public class TrackRepository {
         public static Track Popconference80 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "popconference", "popconference-80-v1");
         public static Track Popconference100 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "popconference", "popconference-100-v1");
     }
+    
+    
+    /**
+     * Food Nutritional Composition track.
+     * This track consists of finding alignments between food concepts
+     * from CIQUAL, the French food nutritional composition database, and food concepts from SIREN. 
+     * Food concepts from both databases are described in LanguaL, a well-known multilingual thesaurus using faceted classification.
+     */
+    public static class Food {
+        /**
+         * This track consists of finding alignments between food concepts
+         * from CIQUAL, the French food nutritional composition database, and food concepts from SIREN.
+         * Foods from both databases are described in LanguaL, a well-known multilingual thesaurus using faceted classification.
+         * Reference alignment originates from <a href="https://doi.org/10.15454/BVXD7I">https://doi.org/10.15454/BVXD7I</a>.
+         **/
+        public static Track V1 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "food", "v1");
+
+    }
 
     /**
      * Instance Matching
@@ -607,6 +625,27 @@ public class TrackRepository {
          * The new Biodiv track used in OAEI 2021. 
          */
         public static Track V2021OWL = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "biodiv", "2021owl");
+        
+        /**
+         * The new Biodiv track used in OAEI 2022. 
+         */
+        public static Track V2022 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "biodiv", "2022");
+    }
+    
+    
+    /**
+     * Material Sciences and Engineering track.
+     * The Material Sciences and Engineering (MSE) track contains the first benchmark for the evaluation of
+     * (semi-)automatic ontology matching techniques. In this emerging ontological domain, small to mid-sized upper and domain level ontologies
+     * are used that contain concepts described in natural language and are implemented by heterogeneous design principles
+     * with only partial overlap to each other.
+     */
+    public static class MSE {
+        /**
+         * 2021 Version
+         */
+        public static Track V2021 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "mse", "2021");
+        
     }
 
     /**
@@ -654,6 +693,30 @@ public class TrackRepository {
         // TODO implement
     }
 
+    /**
+     * This track evaluates the ability of matching systems to map the schema (classes)
+     * of large common knowledge graphs such as DBpedia, YAGO and NELL.
+     */
+    public static class CommonKG {
+        
+        /**
+         * This version matches Nell and DBpedia (originates from the paper <a href="http://disi.unitn.it/~pavel/om2020/papers/om2020_LTpaper3.pdf"> A Gold Standard Dataset for Large Knowledge Graphs Matching</a>).
+         * The <a href="https://github.com/OmaimaFallatah/KG_GoldeStandard">github repro is also available</a>.
+         * This used to be another version of the knowledge graph track but is now its own track.
+         **/
+        public static Track NELL_DBPEDIA_V1 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "commonkg", "nell-dbpedia-v1", false, GoldStandardCompleteness.PARTIAL_SOURCE_COMPLETE_TARGET_COMPLETE);
+        
+        /**
+         * This version originates from <a href="https://github.com/OmaimaFallatah/YagoWikiData">https://github.com/OmaimaFallatah/YagoWikiData</a>.
+         */
+        public static Track YAGO_WIKIDATA_V1 = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "commonkg", "yago-wikidata-v1", false, GoldStandardCompleteness.PARTIAL_SOURCE_COMPLETE_TARGET_COMPLETE);
+        
+        /**
+         * This version originates from <a href="https://github.com/OmaimaFallatah/YagoWikiData">https://github.com/OmaimaFallatah/YagoWikiData</a> 
+         * and is a small version of YAGO_WIKIDATA_V1.
+         */
+        public static Track YAGO_WIKIDATA_V1_SMALL = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "commonkg", "yago-wikidata-v1-small", false, GoldStandardCompleteness.PARTIAL_SOURCE_COMPLETE_TARGET_COMPLETE);
+    }
 
     /**
      * Knowledgegraph track.
@@ -699,6 +762,7 @@ public class TrackRepository {
         /**
          * This version of the KG track contains test cases from the paper <a href="http://disi.unitn.it/~pavel/om2020/papers/om2020_LTpaper3.pdf"> A Gold Standard Dataset for Large Knowledge Graphs Matching</a>.
          * The <a href="https://github.com/OmaimaFallatah/KG_GoldeStandard">github repro is also available</a>.
+         * @deprecated better use  
          **/
         public static Track CommonKG = new SealsTrack("http://oaei.webdatacommons.org/tdrs/", "knowledgegraph", "commonkg", false, GoldStandardCompleteness.PARTIAL_SOURCE_COMPLETE_TARGET_COMPLETE);
 
@@ -839,6 +903,12 @@ public class TrackRepository {
      * @return the testcase with same parameters as the base test case but with a generated input alignment.
      */
     private static TestCase generateTestCaseWithSampledReferenceAlignment(TestCase tc, double fraction, Random randomSeed, boolean removeSamplesFromReference) {
+        return generateTestCaseWithSampledReferencaAlignmentGivenTargetDir(tc, fraction, randomSeed, removeSamplesFromReference, null);
+    }
+
+    private static TestCase generateTestCaseWithSampledReferencaAlignmentGivenTargetDir(
+            TestCase tc, double fraction, Random randomSeed, boolean removeSamplesFromReference, File targetDir
+    ) {
         if (fraction < 0.0 || fraction > 1.0) {
             throw new IllegalArgumentException("Fraction is out of range (smaller zero or greater one)");
         }
@@ -853,20 +923,33 @@ public class TrackRepository {
         inputAlignment.addAll(correspondenceList.subList(0, splitPoint));
 
         try {
-            File inputAlignmentFile = File.createTempFile("alignment_input_from_reference", ".rdf");
+            File inputAlignmentFile;
+            if (targetDir == null) {
+                inputAlignmentFile = File.createTempFile("alignment_input_from_reference", ".rdf");
+            } else {
+                inputAlignmentFile = new File(targetDir, "alignment_input_from_reference.rdf");
+            }
             inputAlignment.serialize(inputAlignmentFile);
-
+            
+            URI evaluationExclusionAlignment = null;
             //build updated reference alignment if needed
             URI referenceAlignmentURI = tc.getReference();
             if (removeSamplesFromReference) {
                 Alignment referenceAlignment = new Alignment(tc.getParsedReferenceAlignment(), false);
                 referenceAlignment.addAll(correspondenceList.subList(splitPoint, correspondenceList.size()));
-                File referenceAlignmentFile = File.createTempFile("alignment_reference_rest", ".rdf");
+                File referenceAlignmentFile;
+                if (targetDir == null) {
+                    referenceAlignmentFile = File.createTempFile("alignment_reference_rest", ".rdf");
+                } else {
+                    referenceAlignmentFile = new File(targetDir, "alignment_reference_rest.rdf");
+                }
                 referenceAlignment.serialize(referenceAlignmentFile);
                 referenceAlignmentURI = referenceAlignmentFile.toURI();
+                evaluationExclusionAlignment = inputAlignmentFile.toURI();
             }
 
-            return new TestCase(tc.getName(), tc.getSource(), tc.getTarget(), referenceAlignmentURI, tc.getTrack(), inputAlignmentFile.toURI(), tc.getGoldStandardCompleteness(), tc.getParameters());
+            return new TestCase(tc.getName(), tc.getSource(), tc.getTarget(), referenceAlignmentURI, tc.getTrack(),
+                    inputAlignmentFile.toURI(), tc.getGoldStandardCompleteness(), tc.getParameters(), evaluationExclusionAlignment);
 
         } catch (IOException ex) {
             LOGGER.error("Could not write alignment to file. Returning initial testcase", ex);
@@ -888,6 +971,22 @@ public class TrackRepository {
      */
     public static TestCase generateTestCaseWithSampledReferenceAlignment(TestCase tc, double fraction, long randomSeed, boolean removeSamplesFromReference) {
         return generateTestCaseWithSampledReferenceAlignment(tc, fraction, new Random(randomSeed), removeSamplesFromReference);
+    }
+
+    /**
+     * Generates a test case where the input alignment of the test case is filled with a fraction of the reference alignment.
+     *
+     * @param tc                         the base test case to use.
+     * @param fraction                   the fraction of the reference alignment ( a value between zero and one) which is provided as inputAlignment.
+     * @param randomSeed                 the random seed number. If it is the same number, then a smaller subset (sample with 10 percent) will
+     *                                   be contained in the larger subset (sample with 20 percent).
+     * @param removeSamplesFromReference if true, the reference (for evaluation) will only contain the correspondences which are not in the input alignment.
+     *                                   If false, all correspondences will be evaluated (also those which are in the input alignment).
+     *                                   This means that the eval will also check if the matcher remembers the input alignment.
+     * @return the testcase with same parameters as the base test case but with a generated input alignment.
+     */
+    public static TestCase generateTestCaseWithSampledReferencaAlignmentGivenTargetDir(TestCase tc, double fraction, long randomSeed, boolean removeSamplesFromReference, File targetDir) {
+        return generateTestCaseWithSampledReferencaAlignmentGivenTargetDir(tc, fraction, new Random(randomSeed), removeSamplesFromReference, targetDir);
     }
 
     /**

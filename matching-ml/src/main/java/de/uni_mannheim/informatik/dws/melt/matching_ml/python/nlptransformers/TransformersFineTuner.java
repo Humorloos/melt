@@ -103,59 +103,73 @@ public class TransformersFineTuner extends TransformersBaseFineTuner implements 
      * @return the maximum {@code per_device_train_batch_size } with the current configuration
      */
     public int getMaximumPerDeviceTrainBatchSize (File trainingFile){
-        //save variables for restoring afterwards
-        TransformersTrainerArguments backupArguments = this.trainingArguments;
-        String backupCudaString = this.cudaVisibleDevices;
-                
-        this.cudaVisibleDevices = getCudaVisibleDevicesButOnlyOneGPU();
-        int batchSize = 4;
-        List<String> batchExamples = getExamplesForBatchSizeOptimization(trainingFile, 8194, this.batchSizeOptimization);
-        while(batchSize < 8193){
-            LOGGER.info("Try out per_device_train_batch_size of {}", batchSize);
-            //generate a smaller training file -> faster tokenizer
-            
-            File tmpTrainingFile = FileUtil.createFileWithRandomNumber("alignment_transformers_find_max_batch_size", ".txt");
-            try{
-                if(this.writeExamplesToFile(batchExamples, tmpTrainingFile, batchSize) == false){
-                    int batchSizeWhichWorks = batchSize / 2;
-                    LOGGER.info("File contains too few lines to further increase batch size. Thus use now {}", batchSizeWhichWorks);
-                    return batchSizeWhichWorks;
-                }
-                this.trainingArguments = new TransformersTrainerArguments(backupArguments);
-                this.trainingArguments.addParameter("per_device_train_batch_size", batchSize);
-                this.trainingArguments.addParameter("save_at_end", false);
-                this.trainingArguments.addParameter("max_steps", 1);
-                PythonServer.getInstance().transformersFineTuning(this, tmpTrainingFile);
-            }catch (PythonServerException ex) {
-                //CUDA ERROR: RuntimeError: CUDA out of memory. Tried to allocate 192.00 MiB (GPU 0; 10.76 GiB total capacity; 9.54 GiB already allocated; 50.56 MiB free; 9.59 GiB reserved in total by PyTorch)
-                //CPU  ERROR: RuntimeError: [enforce fail at ..\c10\core\CPUAllocator.cpp:79] data. DefaultCPUAllocator: not enough memory: you tried to allocate 50878464 bytes.
-                if(ex.getMessage().contains("not enough memory") || ex.getMessage().contains("out of memory")){
-                    int batchSizeWhichWorks = batchSize / 2;
-                    LOGGER.info("Found memory error, thus returning batchsize of {}", batchSizeWhichWorks);
-                    this.trainingArguments = backupArguments;
-                    this.cudaVisibleDevices = backupCudaString;
-                    return batchSizeWhichWorks;
-                }else{
-                    LOGGER.warn("Something went wrong in python server during getMaximumPerDeviceTrainBatchSize. Return default of 8", ex);
+        if (this.isTM()) {
+            try {
+                int maxBatchSize = PythonServer.getInstance().tmMaxBatchSize(this, trainingFile);
+                PythonServer.shutDown();
+                return maxBatchSize;
+            } catch (PythonServerException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            //save variables for restoring afterwards
+            TransformersTrainerArguments backupArguments = this.trainingArguments;
+            String backupCudaString = this.cudaVisibleDevices;
+
+            this.cudaVisibleDevices = getCudaVisibleDevicesButOnlyOneGPU();
+            int batchSize = 4;
+            List<String> batchExamples = getExamplesForBatchSizeOptimization(trainingFile, 8194, this.batchSizeOptimization);
+            while(batchSize < 8193){
+                LOGGER.info("Try out per_device_train_batch_size of {}", batchSize);
+                //generate a smaller training file -> faster tokenizer
+
+                File tmpTrainingFile = FileUtil.createFileWithRandomNumber("alignment_transformers_find_max_batch_size", ".txt");
+                try{
+                    if(this.writeExamplesToFile(batchExamples, tmpTrainingFile, batchSize) == false){
+                        int batchSizeWhichWorks = batchSize / 2;
+                        LOGGER.info("File contains too few lines to further increase batch size. Thus use now {}", batchSizeWhichWorks);
+                        return batchSizeWhichWorks;
+                    }
+                    this.trainingArguments = new TransformersTrainerArguments(backupArguments);
+                    this.trainingArguments.addParameter("per_device_train_batch_size", batchSize);
+                    this.trainingArguments.addParameter("save_at_end", false);
+                    this.trainingArguments.addParameter("max_steps", 1);
+                    if (this.isTM()) {
+                        this.trainingArguments.addParameter("index_file", new File(trainingFile.getParentFile(), "index_" + trainingFile.getName()));
+                    }
+                    PythonServer.getInstance().transformersFineTuning(this, tmpTrainingFile);
+                }catch (PythonServerException ex) {
+                    //CUDA ERROR: RuntimeError: CUDA out of memory. Tried to allocate 192.00 MiB (GPU 0; 10.76 GiB total capacity; 9.54 GiB already allocated; 50.56 MiB free; 9.59 GiB reserved in total by PyTorch)
+                    //CPU  ERROR: RuntimeError: [enforce fail at ..\c10\core\CPUAllocator.cpp:79] data. DefaultCPUAllocator: not enough memory: you tried to allocate 50878464 bytes.
+                    if(ex.getMessage().contains("not enough memory") || ex.getMessage().contains("out of memory")){
+                        int batchSizeWhichWorks = batchSize / 2;
+                        LOGGER.info("Found memory error, thus returning batchsize of {}", batchSizeWhichWorks);
+                        this.trainingArguments = backupArguments;
+                        this.cudaVisibleDevices = backupCudaString;
+                        return batchSizeWhichWorks;
+                    }else{
+                        LOGGER.warn("Something went wrong in python server during getMaximumPerDeviceTrainBatchSize. Return default of 8", ex);
+                        this.trainingArguments = backupArguments;
+                        this.cudaVisibleDevices = backupCudaString;
+                        return 8;
+                    }
+                }catch (Exception ex) {
+                    LOGGER.warn("Something went wrong during getMaximumPerDeviceTrainBatchSize. Return default of 8", ex);
                     this.trainingArguments = backupArguments;
                     this.cudaVisibleDevices = backupCudaString;
                     return 8;
+                }finally{
+                    tmpTrainingFile.delete();
                 }
-            }catch (Exception ex) {
-                LOGGER.warn("Something went wrong during getMaximumPerDeviceTrainBatchSize. Return default of 8", ex);
-                this.trainingArguments = backupArguments;
-                this.cudaVisibleDevices = backupCudaString;
-                return 8;
-            }finally{
-                tmpTrainingFile.delete();
+                batchSize *= 2;
             }
-            batchSize *= 2;
+
+            LOGGER.info("It looks like that batch sizes up to 8192 works out which is unusual. If greater batch sizes are possible the code to search max batch size needs to be changed.");
+            this.trainingArguments = backupArguments;
+            this.cudaVisibleDevices = backupCudaString;
+            return batchSize;
+
         }
-        
-        LOGGER.info("It looks like that batch sizes up to 8192 works out which is unusual. If greater batch sizes are possible the code to search max batch size needs to be changed.");
-        this.trainingArguments = backupArguments;
-        this.cudaVisibleDevices = backupCudaString;
-        return batchSize;
     }
     
     /**

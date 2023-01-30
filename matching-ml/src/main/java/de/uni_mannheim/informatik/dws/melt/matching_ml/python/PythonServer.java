@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.*;
-import de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.kbert.KBertSentenceTransformersMatcher;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Alignment;
 import de.uni_mannheim.informatik.dws.melt.yet_another_alignment_api.Correspondence;
 import net.lingala.zip4j.ZipFile;
@@ -167,6 +166,15 @@ public class PythonServer {
         runRequest(request);
     }
 
+    public int tmMaxBatchSize(TransformersFineTuner fineTuner, File trainingFile) throws PythonServerException {
+        HttpGet request = new HttpGet(serverUrl + "/tm-find-max-batch-size");
+        transformersUpdateBaseRequest(fineTuner, request);
+        transformersFineTunerUpdateBaseRequest(fineTuner, trainingFile, request);
+        String resultString = runRequest(request);
+        LOGGER.info("Determined max batch size of {}", resultString);
+        return Integer.parseInt(resultString);
+    }
+
     /**
      * Run a transformers model on a CSV file with two columns (text left and text right) to predict if they describe the same concept.
      *
@@ -215,7 +223,6 @@ public class PythonServer {
         request.addHeader("topk", Integer.toString(matcher.getTopK()));
         request.addHeader("both-directions", Boolean.toString(matcher.isBothDirections()));
         request.addHeader("topk-per-resource", Boolean.toString(matcher.isTopkPerResource()));
-        request.addHeader("kbert", Boolean.toString(matcher.getClass() == KBertSentenceTransformersMatcher.class));
         request.addHeader("pooling-mode", matcher.getPoolingMode());
         request.addHeader("sampling-mode", matcher.getSamplingMode());
 
@@ -269,6 +276,9 @@ public class PythonServer {
         request.addHeader("training-arguments", base.getTrainingArguments().toJsonString());
         request.addHeader("tmp-dir", getCanonicalPath(FileUtil.getUserTmpFolder()));
         request.addHeader("multi-processing", base.getMultiProcessing().toString());
+        request.addHeader("tm", Boolean.toString(base.isTM()));
+        request.addHeader("tm-attention", base.isTmAttention() == null ? "hardpos" : Boolean.toString(base.isTmAttention()));
+        request.addHeader("max-length", base.getMaxLength().toString());
 
         String cudaVisibleDevices = base.getCudaVisibleDevices();
         if (cudaVisibleDevices != null) {
@@ -1171,13 +1181,18 @@ public class PythonServer {
         String pythonZipName = pythonResourceName + ".zip";
         exportResource(serverResourceDirectory, pythonZipName);
 
-        try (ZipFile pythonZip = new ZipFile(serverResourceDirectory + "/"+ pythonZipName)) {
+        try (ZipFile pythonZip = new ZipFile(serverResourceDirectory + "/" + pythonZipName)) {
             pythonZip.extractAll(serverResourceDirectory.toString());
+
+            File pythonTargetDir = new File(serverResourceDirectory, PYTHON_DIRECTORY_NAME);
+            if (pythonTargetDir.exists()) {
+                FileUtils.deleteDirectory(pythonTargetDir);
+            }
+            FileUtils.moveDirectory(new File(serverResourceDirectory, pythonResourceName),
+                    pythonTargetDir);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        new File(serverResourceDirectory, pythonResourceName)
-                .renameTo(new File(serverResourceDirectory, PYTHON_DIRECTORY_NAME));
 
         exportResource(serverResourceDirectory, "requirements.txt");
 

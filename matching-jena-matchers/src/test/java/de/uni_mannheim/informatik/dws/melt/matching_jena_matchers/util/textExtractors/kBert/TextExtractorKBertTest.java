@@ -33,7 +33,7 @@ class TextExtractorKBertTest {
         Properties properties = getTransformedPropertiesOrNewInstance(parameters);
         URL target = testCase.getTarget().toURL();
         OntModel targetOntology = getTransformedObject(target, OntModel.class, properties);
-        TextExtractorKBertImpl extractor = new TextExtractorKBertImpl(true, true, true);
+        TextMoleculeExtractorImpl extractor = new TextMoleculeExtractorImpl(true, true, true);
         KBertSentenceTransformersMatcher matcher = new KBertSentenceTransformersMatcher(
                 extractor, "paraphrase-MiniLM-L6-v2");
         Iterator<? extends OntResource> resourceIterator = matcher.getResourcesExtractor().get(0).extract(targetOntology, properties);
@@ -55,8 +55,8 @@ class TextExtractorKBertTest {
         URL target = testCase.getTarget().toURL();
         OntModel targetOntology = getTransformedObject(target, OntModel.class, properties);
         KBertSentenceTransformersMatcher matcher = new KBertSentenceTransformersMatcher(
-                new TextExtractorKBertImpl(true, true, false), "paraphrase-MiniLM-L6-v2");
-        TextExtractorKBertImpl simpleTextExtractor = new TextExtractorKBertImpl(false, true, false);
+                new TextMoleculeExtractorImpl(true, true, false), "paraphrase-MiniLM-L6-v2");
+        TextMoleculeExtractorImpl simpleTextExtractor = new TextMoleculeExtractorImpl(false, true, false);
         Iterator<? extends OntResource> resourceIterator = matcher.getResourcesExtractor().get(0).extract(targetOntology, properties);
         OntResource resource = streamFromIterator(resourceIterator)
                 .filter(r -> r.isURIResource() && r.getURI().equals(uriOfResourceWithDuplicateStatements))
@@ -77,7 +77,7 @@ class TextExtractorKBertTest {
         Properties properties = getTransformedPropertiesOrNewInstance(parameters);
         URL target = testCase.getTarget().toURL();
         OntModel targetOntology = getTransformedObject(target, OntModel.class, properties);
-        TextExtractorKBertImpl textExtractor = new TextExtractorKBertImpl(true, true, false);
+        TextMoleculeExtractorImpl textExtractor = new TextMoleculeExtractorImpl(true, true, false);
         KBertSentenceTransformersMatcher matcher = new KBertSentenceTransformersMatcher(
                 textExtractor, "paraphrase-MiniLM-L6-v2");
         Iterator<? extends OntResource> resourceIterator = matcher.getResourcesExtractor().get(0).extract(targetOntology, properties);
@@ -100,7 +100,7 @@ class TextExtractorKBertTest {
         Properties properties = getTransformedPropertiesOrNewInstance(parameters);
         URL target = testCase.getTarget().toURL();
         OntModel targetOntology = getTransformedObject(target, OntModel.class, properties);
-        TextExtractorKBertImpl textExtractor = new TextExtractorKBertImpl(true, true, true);
+        TextMoleculeExtractorImpl textExtractor = new TextMoleculeExtractorImpl(true, true, true);
         KBertSentenceTransformersMatcher matcher = new KBertSentenceTransformersMatcher(
                 textExtractor, "paraphrase-MiniLM-L6-v2");
         Iterator<? extends OntResource> resourceIterator = matcher.getResourcesExtractor().get(0).extract(targetOntology, properties);
@@ -123,12 +123,12 @@ class TextExtractorKBertTest {
         Properties properties = getTransformedPropertiesOrNewInstance(parameters);
         URL target = testCase.getTarget().toURL();
         OntModel targetOntology = getTransformedObject(target, OntModel.class, properties);
-        TextExtractorKBertImpl textExtractor = new TextExtractorKBertImpl(true, true, false);
+        TextMoleculeExtractorImpl textExtractor = new TextMoleculeExtractorImpl(true, true, false);
         KBertSentenceTransformersMatcher matcher = new KBertSentenceTransformersMatcher(
                 textExtractor, "paraphrase-MiniLM-L6-v2");
         Iterator<? extends OntResource> resourceIterator = matcher.getResourcesExtractor().get(0).extract(targetOntology, properties);
         // When
-        Stream<String> molecule = textExtractor.getIndexStream(resourceIterator);
+        Stream<String> molecule = textExtractor.getIndexStream();
         // Then
         System.out.println("");
     }

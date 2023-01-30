@@ -7,11 +7,20 @@ import org.apache.jena.rdf.model.Statement;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Abstract representation of any kind of statement (subject or object)
+ */
 public abstract class ProcessedStatement<T extends ProcessedRDFNode> {
     protected NeighborRole role;
 
     protected final ProcessedProperty predicate;
     protected T neighbor;
+
+    public void setUseIndex(boolean useIndex) {
+        this.useIndex = useIndex;
+    }
+
+    private boolean useIndex = true;
 
     public ProcessedStatement(Statement statement) {
         this.predicate = new ProcessedProperty(statement.getPredicate());
@@ -20,7 +29,16 @@ public abstract class ProcessedStatement<T extends ProcessedRDFNode> {
     }
 
     public Map<String, String> getRow() {
-        return Map.of("p", predicate.getKey(), "n", neighbor.getKey(), "r", role.getRole());
+        String predicateRepr;
+        String neighborRepr;
+        if (useIndex) {
+            predicateRepr = predicate.getKey();
+            neighborRepr = neighbor.getKey();
+        } else {
+            predicateRepr = predicate.getNormalized();
+            neighborRepr = neighbor.getNormalized();
+        }
+        return Map.of("p", predicateRepr, "n", neighborRepr, "r", role.getRole());
     }
 
     public T getNeighbor() {

@@ -2,28 +2,9 @@ package de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers;
 
 import de.uni_mannheim.informatik.dws.melt.matching_base.FileUtil;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.MatcherYAAAJena;
-import java.io.File;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractor;
 import de.uni_mannheim.informatik.dws.melt.matching_jena.TextExtractorMap;
-import java.io.BufferedWriter;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.Set;
-import java.util.StringJoiner;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import de.uni_mannheim.informatik.dws.melt.matching_jena.kbert.TextMoleculeExtractor;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -32,6 +13,14 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.apache.jena.rdf.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * This is a base class for all Transformers.
@@ -43,6 +32,7 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     private static final Logger LOGGER = LoggerFactory.getLogger(TransformersBase.class);
 
     protected TextExtractorMap extractor;
+    protected TextExtractor simpleExtractor;
     protected String modelName;
     
     protected TransformersTrainerArguments trainingArguments;
@@ -51,6 +41,27 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     protected File transformersCache;
     protected TransformersMultiProcessing multiProcessing;
     protected boolean multipleTextsToMultipleExamples;
+    protected boolean tm;
+    protected Boolean tmAttention;
+
+    public Boolean isTmAttention() {
+        return tmAttention;
+    }
+
+    public void setTmAttention(Boolean tmAttention) {
+        this.tmAttention = tmAttention;
+    }
+
+
+    public Integer getMaxLength() {
+        return maxLength;
+    }
+
+    public void setMaxLength(Integer maxLength) {
+        this.maxLength = maxLength;
+    }
+
+    protected Integer maxLength;
 
     /**
      * Constructor with all required parameters.
@@ -72,6 +83,9 @@ public abstract class TransformersBase extends MatcherYAAAJena {
         this.transformersCache = null; //use default
         this.multiProcessing = TransformersMultiProcessing.SPAWN;
         this.multipleTextsToMultipleExamples = false;
+        this.tm = false;
+        this.maxLength = 0;
+        this.tmAttention = true;
     }
     
     /**
@@ -85,6 +99,7 @@ public abstract class TransformersBase extends MatcherYAAAJena {
      */
     public TransformersBase(TextExtractor extractor, String modelName) {
         this(TextExtractorMap.wrapTextExtractor(extractor), modelName);
+        this.simpleExtractor = extractor;
     }
     
     /**
@@ -110,6 +125,14 @@ public abstract class TransformersBase extends MatcherYAAAJena {
      */
     public void setExtractor(TextExtractor extractor) {
         this.extractor = TextExtractorMap.wrapTextExtractor(extractor);
+    }
+
+    public void setTM(boolean tm) {
+        this.tm = tm;
+    }
+
+    public boolean isTM() {
+        return tm;
     }
     
     /**
@@ -327,24 +350,21 @@ public abstract class TransformersBase extends MatcherYAAAJena {
     public void setMultipleTextsToMultipleExamples(boolean multipleTextsToMultipleExamples) {
         this.multipleTextsToMultipleExamples = multipleTextsToMultipleExamples;
     }
-    
-    
-    protected Map<String, Set<String>> getTextualRepresentation(Resource r, Map<Resource,Map<String, Set<String>>> cache){
+
+    protected Map<String, Set<String>> getTextualRepresentation(Resource r, Map<Resource, Map<String, Set<String>>> cache) {
         Map<String, Set<String>> cacheResult = cache.get(r);
-        if(cacheResult != null)
-            return cacheResult;
-        Map<String, Set<String>> texts = new HashMap<>();
-        if(this.multipleTextsToMultipleExamples){
-            texts = this.extractor.extract(r);
-        }else{
+        if (cacheResult != null) return cacheResult;
+        Map<String, Set<String>> texts = this.extractor.extract(r);
+        if (!(this.multipleTextsToMultipleExamples || this.isTM())) {
+            String extractedText;
             StringBuilder sb = new StringBuilder();
-            for(Map.Entry<String, Set<String>> groupedText : this.extractor.extract(r).entrySet()){
-                for(String text : groupedText.getValue()){
+            for (Map.Entry<String, Set<String>> groupedText : texts.entrySet()) {
+                for (String text : groupedText.getValue()) {
                     sb.append(text.trim()).append(" ");
                 }
             }
-            String extractedText = sb.toString();
-            if(!StringUtils.isBlank(extractedText)){
+            extractedText = sb.toString();
+            if (!StringUtils.isBlank(extractedText)) {
                 texts.put("OneText", new HashSet<>(Arrays.asList(extractedText)));
             }
         }
@@ -469,6 +489,25 @@ public abstract class TransformersBase extends MatcherYAAAJena {
             }
         }
         return i >= numberOfExamples;
+    }
+
+
+    protected void printIndexIfNeeded(File outputFile, Map<Resource, Map<String, Set<String>>> cache) throws IOException {
+        if (this.tm) {
+            LOGGER.info("Writing index for Text Molecule Tokenizer");
+            File indexOutputFile = new File(outputFile.getParentFile(), "index_" + outputFile.getName());
+            Files.createDirectories(indexOutputFile.getParentFile().toPath());
+            try (PrintWriter printWriter = new PrintWriter(indexOutputFile)) {
+                AtomicInteger linesWritten = new AtomicInteger();
+                TextMoleculeExtractor tmExtractor = (TextMoleculeExtractor) this.simpleExtractor;
+                tmExtractor.getIndexStream().forEach(x -> {
+                    printWriter.println(x);
+                    linesWritten.addAndGet(1);
+                });
+                LOGGER.info("Wrote {} lines to index file", linesWritten);
+                tmExtractor.emptyCache();
+            }
+        }
     }
 }
 

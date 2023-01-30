@@ -5,13 +5,11 @@ import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtra
 
 import java.util.Objects;
 
+/**
+ * General class for RDF graph element text extraction
+ */
 public abstract class ProcessedRDFNode {
 
-    /**
-     * todo
-     *
-     * @return todo
-     */
     public NormalizedLiteral getNormalizedLiteral() {
         return new NormalizedLiteral(getRaw());
     }

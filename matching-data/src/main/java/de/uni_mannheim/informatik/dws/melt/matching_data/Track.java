@@ -56,6 +56,10 @@ public abstract class Track implements Comparable<Track> {
      */
     protected static File cacheFolder;
 
+    public boolean isSkipTestsWithoutRefAlign() {
+        return skipTestsWithoutRefAlign;
+    }
+
     protected boolean skipTestsWithoutRefAlign;
     
     protected String remoteLocation;
@@ -63,7 +67,11 @@ public abstract class Track implements Comparable<Track> {
     protected String version;
     
     protected List<TestCase> testCases; //initialized lazily
-    
+
+    public boolean isUseDuplicateFreeStorageLayout() {
+        return useDuplicateFreeStorageLayout;
+    }
+
     /**
      * If true, store and load testcases in a folder structure where ontologies are only stored once and not copied for every testcase.
      * layout:
@@ -74,7 +82,11 @@ public abstract class Track implements Comparable<Track> {
      *     - ont1-ont2.rdf
      */
     protected boolean useDuplicateFreeStorageLayout;
-    
+
+    public GoldStandardCompleteness getGoldStandardCompleteness() {
+        return goldStandardCompleteness;
+    }
+
     /**
      * Completeness of the gold standard for all test cases.
      */
@@ -429,16 +441,16 @@ public abstract class Track implements Comparable<Track> {
      * @return Parsed TestCase list.
      */
     protected List<TestCase> readFromTestCaseLayout(){
-        List<TestCase> testCases = new ArrayList<>();        
+        List<TestCase> collectedTestCases = new ArrayList<>();        
         File file = Paths.get(
                     cacheFolder.getAbsolutePath(),
                     encode(this.remoteLocation),
                     encode(this.name),
                     encode(this.version)).toFile();
         
-        File[] files = file.listFiles();
+        File[] files = file.listFiles(File::isDirectory);
         if(files == null)
-            return testCases;
+            return collectedTestCases;
 
         for(File f : files){
             if(f.getName().equalsIgnoreCase(".DS_Store")) continue; // ignore this file for mac operating systems
@@ -447,16 +459,23 @@ public abstract class Track implements Comparable<Track> {
             File reference_file = new File(f, TestCaseType.REFERENCE.toFileName());
             File input_file = new File(f, TestCaseType.INPUT.toFileName());
             File parameters_file = new File(f, TestCaseType.PARAMETERS.toFileName());
+            File evalExclusion_file = new File(f, TestCaseType.EVALUATIONEXCLUSION.toFileName());
             
-            if(source_file.exists() == false || target_file.exists() == false){
-                LOGGER.error("Cache is corrupted - source or target file is not there - continue (to solve it, delete the cache folder)");
+            if(source_file.exists() == false ){
+                LOGGER.error("Cache is corrupted (delete the cache folder to initiate a re-download) - source file is not there: {}", source_file);
                 continue;
             }
-            
-            if(reference_file.exists() == false && skipTestsWithoutRefAlign)
+            if(target_file.exists() == false){
+                LOGGER.error("Cache is corrupted (delete the cache folder to initiate a re-download) - target file is not there: {}", target_file);
                 continue;
+            }
+            if(reference_file.exists() == false && skipTestsWithoutRefAlign){
+                LOGGER.error("Cache is corrupted (delete the cache folder to initiate a re-download or set skipTestsWithoutRefAlign ) - reference file is not there: {}", reference_file);
+                continue;
+            }
+                
             
-            testCases.add(new TestCase(
+            collectedTestCases.add(new TestCase(
                     f.getName(),
                     source_file.toURI(),
                     target_file.toURI(),
@@ -464,9 +483,10 @@ public abstract class Track implements Comparable<Track> {
                     this,
                     input_file.exists() ? input_file.toURI() : null,
                     this.goldStandardCompleteness,
-                    parameters_file.exists() ? parameters_file.toURI() : null));
+                    parameters_file.exists() ? parameters_file.toURI() : null,
+                    evalExclusion_file.exists() ? evalExclusion_file.toURI() : null));
         }
-        return testCases;
+        return collectedTestCases;
     }
 
     /**
@@ -493,7 +513,7 @@ public abstract class Track implements Comparable<Track> {
         if(skipTestsWithoutRefAlign == false)
             LOGGER.warn("Using DuplicateFreeLayout for storing the testcases. returning testcase without reference alignment is not possible here.");
         
-        List<TestCase> testCases = new ArrayList<>(); 
+        List<TestCase> collectedTestCases = new ArrayList<>(); 
         for(File referenceFile : referenceFiles){
             if(referenceFile.getName().equalsIgnoreCase(".DS_Store")) continue; // ignore this file for mac operating systems
             String fileNameWithoutExtension = removeExtension(referenceFile.getName());
@@ -522,16 +542,21 @@ public abstract class Track implements Comparable<Track> {
                     encode(this.remoteLocation),encode(this.name), encode(this.version),
                     TestCaseType.PARAMETERS.toString(), referenceFile.getName()).toFile();
             
-            testCases.add(new TestCase(fileNameWithoutExtension,
+            File evalExclusionFile = Paths.get(cacheFolder.getAbsolutePath(),
+                    encode(this.remoteLocation),encode(this.name), encode(this.version),
+                    TestCaseType.EVALUATIONEXCLUSION.toString(), referenceFile.getName()).toFile();
+            
+            collectedTestCases.add(new TestCase(fileNameWithoutExtension,
                     sourceFile.toURI(),
                     targetFile.toURI(),
                     referenceFile.toURI(),
                     this,
                     inputFile.exists() ? inputFile.toURI() : null,
                     this.goldStandardCompleteness,
-                    parametersFile.exists() ? parametersFile.toURI() : null));
+                    parametersFile.exists() ? parametersFile.toURI() : null,
+                    evalExclusionFile.exists() ? evalExclusionFile.toURI() : null));
         }
-        return testCases;
+        return collectedTestCases;
     }
     
     private List<TestCase> readFromDefaultLayout(){

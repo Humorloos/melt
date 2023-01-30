@@ -1,16 +1,20 @@
+"""
+Tests for testing functionality of models with TM-modification
+"""
 import pandas as pd
 import pytest
 from sentence_transformers import SentenceTransformer
 
-from kbert.KBertSentenceTransformer import KBertSentenceTransformer, add_statement_texts
-from kbert.constants import RESOURCES_DIR
+from kbert.KBertSentenceTransformer import KBertSentenceTransformer
+from kbert.constants import RESOURCES_DIR, TM_DATA_SPECIFICATION_PATH, TM_DATA_DIR
+from kbert.tokenizer.utils import add_statement_texts
 from matching_ml.python_server_melt import load_file
 
 
 # @pytest.mark.skip
 def test_encode_kbert():
     # Given
-    source_dir = RESOURCES_DIR / 'kbert' / 'raw' / 'all_targets'
+    source_dir = TM_DATA_DIR / 'anatomy_track' / 'mouse-human-suite' / TM_DATA_SPECIFICATION_PATH
     model = KBertSentenceTransformer('paraphrase-albert-small-v2', pooling_mode='mean_target',
                                      index_files=[source_dir / 'index_corpus.csv'])
     corpus_file_name = str(source_dir / 'corpus.csv')
@@ -29,6 +33,8 @@ def test_encode_kbert_tinybert():
     corpus, corpus_pos_to_id = load_file(corpus_file_name)
     # When
     embeddings = model.encode(corpus[:80], batch_size=32, convert_to_tensor=True)
+    # Then
+    assert False
 
 
 @pytest.mark.skip
@@ -71,7 +77,7 @@ def test_tokenize_long_description():
 def test_tokenize():
     # Given
     source_dir = RESOURCES_DIR / 'kbert' / 'raw' / 'all_targets'
-    model = KBertSentenceTransformer('paraphrase-albert-small-v2', [source_dir / f'index_{src}.csv' for src in ['queries', 'corpus']], sampling_mode='random')
+    model = KBertSentenceTransformer('paraphrase-albert-small-v2', [source_dir / f'index_{src}.csv' for src in ['queries', 'corpus']])
     corpus_file_name = str(source_dir / 'queries.csv')
     corpus, corpus_pos_to_id = load_file(corpus_file_name)
     # When
