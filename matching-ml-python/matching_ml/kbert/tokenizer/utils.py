@@ -1,3 +1,6 @@
+"""
+Functions used across different scripts
+"""
 import json
 import numpy as np
 import pandas as pd

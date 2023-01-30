@@ -1,3 +1,6 @@
+"""
+This file contains the functions for fine-tuning the cross-encoder with hyperparameter optimization.
+"""
 from collections import defaultdict
 
 import json
@@ -141,11 +144,7 @@ def finetune_transformer(request_headers):
 
     # determine val check interval (spend 10 times more time on training than on validation)
     complete_data_size = len(labels)
-    # val_set_size = min(MAX_VAL_SET_SIZE, complete_data_size // 10)  # size of validation set
-    # train_set_size = complete_data_size - val_set_size  # size of training set
-    # val_check_interval = 1 / (ceil(1 / (10 * val_set_size / train_set_size)))
     val_check_interval = 1
-    # validations_per_epoch = 1 / val_check_interval
     validations_per_epoch = 1
     num_workers = {True: 1, False: WORKERS_PER_TRIAL}[DEBUG]
 
@@ -201,7 +200,6 @@ def finetune_transformer(request_headers):
         ray_local_dir = Path(tmp_dir) / "ray_local_dir"
 
         # PBT
-        # scheduler = PopulationBasedTraining(
         scheduler = CustomPBT(
             experiment_name=experiment_name,
             time_attr="training_iteration",
@@ -209,40 +207,8 @@ def finetune_transformer(request_headers):
             hyperparam_mutations=search_config,
             custom_explore_fn=custom_explore,
             quantile_fraction=0.5,
-            # burn_in_period=10,
         )
         search_alg = None
-        # PB2
-        # from ray.tune.schedulers.pb2 import PB2
-        # hyperparam_bounds = {
-        #     'batch_size': [2, batch_size],
-        #     'lr': [1e-7, 1e-5],
-        #     'weight_decay': [1e-7, 1e-1],
-        #     'dropout': [0.1, 0.5],
-        #     'pos_weight': [positive_class_weight_lower_bound, positive_class_weight_upper_bound],
-        #     'condense': [1, 100],
-        # }
-        # scheduler = PB2(
-        #     time_attr="training_iteration",
-        #     perturbation_interval=validations_per_epoch,
-        #     hyperparam_bounds=hyperparam_bounds,
-        # )
-        # search_alg = None
-
-        # BOHB
-        # # BOHB search algorithm for finding new hyperparameter configurations
-        # search_alg = TuneBOHB()
-        # if SEARCH_RESTORE_DIR_NAME is not None:
-        #     search_alg.restore_from_dir(ray_local_dir / SEARCH_RESTORE_DIR_NAME)
-        # search_alg.set_search_properties(metric='f1', mode='max', config=search_config)
-        #
-        # # BOHB scheduler for scheduling and discarding trials
-        # iterations_per_epoch = 1 / val_check_interval
-        # scheduler = HyperBandForBOHB(
-        #     time_attr="training_iteration",
-        #     # train for at most the number of iterations that fit into the max number of epochs
-        #     max_t=MAX_EPOCHS * iterations_per_epoch
-        # )
 
         log.info('Starting Ray Tune run')
 
@@ -258,7 +224,6 @@ def finetune_transformer(request_headers):
             ray_local_dir=ray_local_dir,
         )
         tune.run(
-            # ray_train,
             tune.with_parameters(
                 train_transformer,
                 do_tune=True
@@ -268,13 +233,12 @@ def finetune_transformer(request_headers):
             config=config,
             num_samples={True: 2, False: NUM_SAMPLES}[DEBUG],
             scheduler=scheduler,
-            # local_dir=str(Path(tmpdirname) / "ray_local_dir"),
             local_dir=str(ray_local_dir),
             trial_name_creator=get_trial_name,
             trial_dirname_creator=get_trial_name,
             name=experiment_name,
             resume=RESUME,
-            max_failures=-1,  # default: 0, set to higher value to re-try failed trials
+            max_failures=-1,
             resources_per_trial={
                 'gpu': GPUS_PER_TRIAL,
                 'cpu': GPUS_PER_TRIAL * num_workers,
@@ -306,22 +270,10 @@ def finetune_transformer(request_headers):
         config['batch_size'] = batch_size
 
         return train_transformer(config, do_tune=do_tune)
-        # return train_transformer(config, checkpoint_dir=CHECKPOINT_PATH, do_tune=do_tune)
 
 
 def pre_tokenize_file(index_file_path, is_tm_modification_enabled, max_length, model_name, pre_tokenized_dir: Path,
                       tm_attention, soft_positioning, training_file):
-    # todo: split training file into equal-size splits such that each split contains
-    # min_c: min condensation factor
-    # max_c: max condensation factor
-    # N: train epoch examples
-    # S: train set size
-    # pn: fraction of negatives in train set
-    # nn: number of negatives in train set
-    # ns: number of splits
-    # n_pos = 1/(1+min_c)*N
-    # n_neg = min(max_c * n_pos, nn/ns)
-    # save only relevant validation examples to file
     batch_test = 16
     model_path = Path(model_name)
     if model_path.exists():
@@ -355,7 +307,6 @@ def pre_tokenize_file(index_file_path, is_tm_modification_enabled, max_length, m
     data_module = MyDataModule(
         test_data_path=training_file,
         batch_size=batch_test,
-        # num_workers=int(os.cpu_count() / 2 ** 4),
         num_workers=12,
         tm=is_tm_modification_enabled,
         base_model=base_model_name,
@@ -364,7 +315,7 @@ def pre_tokenize_file(index_file_path, is_tm_modification_enabled, max_length, m
         soft_positioning=soft_positioning,
         index_file_path=index_file_path
     )
-    for label, label_dict in enumerate(label_dict_list):  # todo: undo reverse
+    for label, label_dict in enumerate(label_dict_list):
         if label_dict['done']:
             print(f'All examples with label {label} have already been tokenized')
         n_tokenized_splits = label_dict['n_tokenized_splits']

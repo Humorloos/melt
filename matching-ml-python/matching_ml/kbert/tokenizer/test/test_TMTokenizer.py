@@ -1,6 +1,8 @@
+"""
+Test for class TMTokenizer
+"""
 from pathlib import Path
 
-from kbert.KBertSentenceTransformer import KBertSentenceTransformer
 from kbert.constants import RESOURCES_DIR, TRACK, TEST_CASE, TM_DATA_SPECIFICATION_PATH, FRACTION_SPECIFICATION, \
     MODEL_NAME
 from utils import transformers_read_file, initialize_tokenizer

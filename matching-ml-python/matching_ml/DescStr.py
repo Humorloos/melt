@@ -1,3 +1,6 @@
+"""
+Helper class for nested progress bars during pre-tokenization
+"""
 import re
 
 

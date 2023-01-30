@@ -1,3 +1,7 @@
+"""
+Alternative entry point to transformer_predict() which is usually called by flask server. This script is only for
+testing
+"""
 import logging
 import sys
 

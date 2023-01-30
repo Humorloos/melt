@@ -17,7 +17,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * All annotation properties are followed (recursively).
+ * Almost copy of literalExtractors.LiteralExtractorAllAnnotationProperties, but groups extracted texts by long and
+ * short
  */
 public class TextExtractorLongAndShortAnnotationProperties implements TextExtractorMap {
 

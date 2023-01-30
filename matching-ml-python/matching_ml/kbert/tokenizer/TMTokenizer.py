@@ -1,3 +1,7 @@
+"""
+This file contains the text molecule tokenizer for the TM-modification which samples text molecules and computes soft-
+positions and attention masks in a vectorized fashion
+"""
 import numpy as np
 import pandas as pd
 import torch

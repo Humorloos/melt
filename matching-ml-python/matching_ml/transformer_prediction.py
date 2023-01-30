@@ -1,3 +1,6 @@
+"""
+Functions for performing predictions with a cross-encoder and retrieving the model's confidence scores
+"""
 import os
 
 import json
@@ -65,7 +68,6 @@ def transformer_predict(request_headers):
     log.info("Run prediction")
     pred_out = trainer.predict(model, datamodule=datamodule)
     class_index = 0 if change_class else 1
-    # sigmoid: scores = 1 / (1 + np.exp(-pred_out.predictions, axis=1[:, class_index]))
     # compute softmax to get class probabilities (scores between 0 and 1)
     scores = softmax(torch.concat([p.logits for p in pred_out]), axis=1)[:, class_index]
     return scores.tolist()

@@ -1,3 +1,8 @@
+"""
+Re-implementation of huggingface's AlbertModel class that uses the self.get_extended_attention_mask() method instead of
+extending the mask directly in forward. Using the method allows modifying it for using the 2D dependency-aware mask
+for the TM-modification
+"""
 import torch
 from transformers import AlbertModel
 from transformers.modeling_outputs import BaseModelOutputWithPooling

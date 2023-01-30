@@ -4,6 +4,9 @@ import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtra
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.Statement;
 
+/**
+ * Representation of an object statement where the object is a resource
+ */
 public class ResourceObjectStatement extends ObjectStatement<ProcessedResource<Resource>> {
     public ResourceObjectStatement(Statement statement) {
         super(statement);

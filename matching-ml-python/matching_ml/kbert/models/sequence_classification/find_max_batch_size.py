@@ -1,3 +1,6 @@
+"""
+The functions find_max_batch_size was used to find max batch size for some time, but was not used in any experiments
+"""
 import logging
 import numpy as np
 import torch

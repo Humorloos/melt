@@ -1,3 +1,6 @@
+"""
+Wrapper class for dataset without labels (for prediction)
+"""
 from torch.utils.data import Dataset
 
 

@@ -1,3 +1,6 @@
+"""
+Tests for testing functionality of models with TM-modification
+"""
 import pandas as pd
 import pytest
 from sentence_transformers import SentenceTransformer

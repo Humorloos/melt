@@ -1,3 +1,6 @@
+"""
+Functions used across different scripts
+"""
 import logging
 import numpy as np
 import os

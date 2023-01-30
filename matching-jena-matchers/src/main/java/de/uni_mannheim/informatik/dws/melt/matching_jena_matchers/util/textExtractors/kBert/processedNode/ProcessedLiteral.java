@@ -2,6 +2,9 @@ package de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtr
 
 import org.apache.jena.rdf.model.Literal;
 
+/**
+ * Literal wrapper for text extraction
+ */
 public class ProcessedLiteral extends ProcessedRDFNode {
     private final String raw;
 

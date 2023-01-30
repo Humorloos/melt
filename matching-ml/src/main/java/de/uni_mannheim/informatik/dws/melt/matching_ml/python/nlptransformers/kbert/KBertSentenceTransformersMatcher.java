@@ -22,6 +22,9 @@ import java.util.stream.StreamSupport;
 
 import static org.apache.commons.text.StringEscapeUtils.escapeCsv;
 
+/**
+ * Bi-encoder matcher with TM-modification
+ */
 public class KBertSentenceTransformersMatcher extends SentenceTransformersMatcher {
     public static final Map<Boolean, String> NORMALIZED_MAP = Map.of(true, "normalized", false, "raw");
     public static final Map<Boolean, String> ALL_TARGETS_MAP = Map.of(true, "all_targets", false, "one_target");

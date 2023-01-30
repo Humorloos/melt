@@ -11,6 +11,9 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.stream.StreamSupport;
 
+/**
+ * Class for text extraction from resource nodes
+ */
 public class ProcessedResource<T extends Resource> extends ProcessedRDFNode {
     protected final T resource;
 

@@ -1,3 +1,7 @@
+"""
+Custom implementation of PBT explore function that prevents batch size, dropout, and positive class weight to take
+unreasonable values due to mutations
+"""
 from kbert.constants import BATCH_SIZE
 
 

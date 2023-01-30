@@ -1,4 +1,6 @@
-import pandas as pd
+"""
+PyTorch lightning data module for loading batches from training, validation, and evaluation datasets
+"""
 import pytorch_lightning as pl
 import torch
 from math import floor, ceil
@@ -217,15 +219,7 @@ class MyDataModule(pl.LightningDataModule):
                 truncation='longest_first',
             )
         if 'label' in batch[0]:
-            try:
-                labels = torch.LongTensor([int(i['label']) for i in batch])
-            except:
-                print('')
-            # # following lines are for analysis
-            # slmr_left, slmr_right = get_single_line_molecule_representations([i['text_left'] for i in batch], self.tokenizer, self.tokenizer.base_tokenizer.model_max_length, [i['text_right'] for i in batch])
-            # slmr_df = pd.DataFrame({'slmr_left': slmr_left, 'slmr_right': slmr_right, 'label': labels})
-            # slmr_pos = slmr_df[slmr_df['label'] == 1]
-            # numpy_encodings = {k: v.detach().numpy() for k, v in encodings.data.items()}
+            labels = torch.LongTensor([int(i['label']) for i in batch])
             return encodings, labels
         else:
             return encodings

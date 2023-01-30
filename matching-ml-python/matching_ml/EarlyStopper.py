@@ -1,3 +1,6 @@
+"""
+Custom implementation of early stopping criterion for PBT populations
+"""
 from collections import defaultdict
 
 from pathlib import Path

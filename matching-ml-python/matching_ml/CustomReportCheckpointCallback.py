@@ -1,3 +1,4 @@
+"""Custom implementation of tune's checkpointing class, just to allow performing checkpoints after each iteration"""
 from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback, TuneCallback
 from typing import Optional, Union, List, Dict
 

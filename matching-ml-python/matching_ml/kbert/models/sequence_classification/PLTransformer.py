@@ -1,4 +1,6 @@
-import pandas as pd
+"""
+PyTorch lightning module wrapper for both unmodified and modified cross-encoder
+"""
 import pytorch_lightning as pl
 import torch
 from time import time
@@ -43,7 +45,6 @@ class PLTransformer(pl.LightningModule):
         self.validation_start = None
 
     def forward(self, batch, *args, **kwargs):
-        # todo: checkout what context_layer looks like when with tm attention and when without, without somehow throws error there currently: C:/Users/Lukas/AppData/Local/JetBrains/IntelliJIdea2022.1/remote_sources/558685107/428031926/transformers/models/albert/modeling_albert.py:371
         return self.base_model(**batch)
 
     def training_step(self, batch):
@@ -91,10 +92,6 @@ class PLTransformer(pl.LightningModule):
         output = self(encodings)
         y_hat_binary = output.logits.argmax(-1)
         softmax_scores = self.softmax(output.logits)
-        # import pandas as pd
-        # asdf = nn.Sigmoid()(output.logits[:, 1]).detach().cpu().numpy()
-        # fdsa = nn.Softmax(dim=1)(output.logits)[:, 1]
-        # iiii = pd.DataFrame({'prob': fdsa.detach().cpu().numpy(), 'target': y.detach().cpu().numpy(), 'pred': y_hat_binary.detach().cpu().numpy()})
         y_hat = softmax_scores[:, 1]
         return {
             'loss': self.loss(output.logits, y),
@@ -109,9 +106,6 @@ class PLTransformer(pl.LightningModule):
             self.validation_start = None
             if len(outputs) > 0:
                 target = torch.cat([x['target'] for x in outputs]).float()
-                # import pandas as pd
-                # asdf = pd.DataFrame({k: torch.cat([x[k] for x in outputs]).detach().cpu().numpy() for k in outputs[0].keys() if k != 'loss'})
-                # jklö = asdf[asdf['target'] == 1]
                 metrics = {'val_loss': torch.stack([x['loss'] for x in outputs]).mean()} | get_metrics(
                     torch.cat([x['pred'] for x in outputs]), target, 'val', include_auc=True) | get_metrics(
                     torch.cat([x['bin_pred'] for x in outputs]).float(), target, 'val_bin')

@@ -4,6 +4,9 @@ import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.StringPro
 
 import java.util.Objects;
 
+/**
+ * A normalized literal that can be compared to other normalized literals
+ */
 public class NormalizedLiteral {
     private final String lexical;
     private final String normalized;

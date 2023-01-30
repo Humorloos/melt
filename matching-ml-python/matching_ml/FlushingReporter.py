@@ -1,3 +1,6 @@
+"""
+Ray tune reporter that reports to wandb
+"""
 from ray.tune import CLIReporter
 
 import wandb

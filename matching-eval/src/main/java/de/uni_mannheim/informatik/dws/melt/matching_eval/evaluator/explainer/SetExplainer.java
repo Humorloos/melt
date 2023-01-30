@@ -11,6 +11,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Explainer for making texts extracted by TextExtractorSet readable and analyzable
+ */
 public class SetExplainer implements IExplainerResourceWithJenaOntology {
 
     private final TextExtractorSet extractor = new TextExtractorSet();

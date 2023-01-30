@@ -1,3 +1,6 @@
+"""
+Tokenizer constants
+"""
 from numpy.random import RandomState
 
 SEED = 42

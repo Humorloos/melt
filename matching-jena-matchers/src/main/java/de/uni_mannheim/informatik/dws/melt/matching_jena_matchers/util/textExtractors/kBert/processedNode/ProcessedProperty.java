@@ -7,6 +7,9 @@ import org.apache.jena.vocabulary.RDFS;
 
 import static de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.constant.KBertLabelPropertyTypes.*;
 
+/**
+ * Property wrapper for text extraction
+ */
 public class ProcessedProperty extends ProcessedResource<Property> {
     public ProcessedProperty(Property property) {
         super(property);

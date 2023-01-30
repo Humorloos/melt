@@ -1,3 +1,6 @@
+"""
+Constants used across different scripts
+"""
 from pathlib import Path
 
 TM_DIR = Path(__file__).parent

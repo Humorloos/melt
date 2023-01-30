@@ -1,17 +1,17 @@
+"""
+This script evaluates intermediately trained models on the sampled cross-track evaluation set
+"""
 import logging
-import os
 import sys
 from pathlib import Path
 from pytorch_lightning import Trainer
 from ray.tune import ExperimentAnalysis
 
 from MyDataModule import MyDataModule
-from kbert.constants import RESOURCES_DIR, BATCH_SIZE, TM, TMA, GPU, DATA_DIR_WITH_FRACTION, MODEL_DIR, \
-    POSITIVE_CLASS_WEIGHT, RUN_NAME, WORKERS_PER_TRIAL, TARGET_METRIC, MODEL_NAME
+from kbert.constants import RESOURCES_DIR, GPU, DATA_DIR_WITH_FRACTION, RUN_NAME, WORKERS_PER_TRIAL, TARGET_METRIC, \
+    MODEL_NAME
 from kbert.models.sequence_classification.PLTransformer import PLTransformer
-from kbert.models.sequence_classification.find_max_batch_size import find_max_batch_size_
 from kbert.utils import get_best_trial
-from transformer_finetuning import finetune_transformer
 from utils import transformers_init
 
 # %%

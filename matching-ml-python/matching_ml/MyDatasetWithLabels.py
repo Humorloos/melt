@@ -1,3 +1,6 @@
+"""
+Wrapper class for datasets with labels (for training/evaluation)
+"""
 import torch
 
 

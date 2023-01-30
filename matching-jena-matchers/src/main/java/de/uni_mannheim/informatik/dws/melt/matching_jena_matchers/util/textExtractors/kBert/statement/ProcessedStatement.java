@@ -7,6 +7,9 @@ import org.apache.jena.rdf.model.Statement;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Abstract representation of any kind of statement (subject or object)
+ */
 public abstract class ProcessedStatement<T extends ProcessedRDFNode> {
     protected NeighborRole role;
 

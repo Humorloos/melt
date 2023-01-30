@@ -1,3 +1,7 @@
+"""
+This script provides an alternative entry-point to function finetune_transformer() which is usually called by the
+flask-server for fine-tuning. Use this script to manually perform intermediate cross-track training.
+"""
 import logging
 import sys
 

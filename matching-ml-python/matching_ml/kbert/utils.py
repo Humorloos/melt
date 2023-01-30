@@ -1,6 +1,8 @@
+"""
+Functions used across different scripts
+"""
 import pandas as pd
 import time
-import torch
 from contextlib import contextmanager
 from sklearn.metrics import roc_auc_score
 from transformers import AlbertModel

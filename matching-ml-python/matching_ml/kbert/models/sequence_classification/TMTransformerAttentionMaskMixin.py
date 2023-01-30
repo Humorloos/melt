@@ -1,6 +1,9 @@
+"""
+Mixin for replacing the original get_extended_attention_mask() method with one that supports 2D attention masks, for
+the TM-modification.
+"""
 import torch
 from typing import Tuple
-
 
 class TMTransformerAttentionMaskMixin():
     def get_extended_attention_mask(

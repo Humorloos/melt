@@ -25,6 +25,9 @@ import java.util.stream.Stream;
 import static de.uni_mannheim.informatik.dws.melt.matching_ml.python.nlptransformers.kbert.KBertSentenceTransformersMatcher.streamFromIterator;
 import static org.apache.commons.lang3.StringEscapeUtils.escapeCsv;
 
+/**
+ * Class for extracting text molecules and building label index
+ */
 public class TextMoleculeExtractorImpl implements TextMoleculeExtractor {
     private final boolean useAllTargets;
     private final boolean normalize;

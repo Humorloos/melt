@@ -1,3 +1,6 @@
+"""
+Helper method for reporting progress from tqdm to wandb
+"""
 import re
 
 import wandb

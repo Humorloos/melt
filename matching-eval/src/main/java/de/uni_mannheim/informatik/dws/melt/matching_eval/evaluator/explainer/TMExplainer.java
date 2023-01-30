@@ -10,6 +10,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Explainer for making texts extracted by TextMoleculeExtractorImpl readable and analyzable
+ */
 public class TMExplainer implements IExplainerResourceWithJenaOntology {
 
     private final TextMoleculeExtractorImpl extractor = new TextMoleculeExtractorImpl(true, true, false);
@@ -21,19 +24,6 @@ public class TMExplainer implements IExplainerResourceWithJenaOntology {
 
     @Override
     public Map<String, String> getResourceFeatures(String uri) {
-        // Given
-//        TestCase testCase = TrackRepository.Anatomy.Default.getTestCase(0);
-//        URL parameters = testCase.getParameters().toURL();
-//        Properties properties = getTransformedPropertiesOrNewInstance(parameters);
-//        URL target = testCase.getTarget().toURL();
-//        OntModel targetOntology = getTransformedObject(target, OntModel.class, properties);
-//        KBertSentenceTransformersMatcher matcher = new KBertSentenceTransformersMatcher(
-//                extractor, "paraphrase-MiniLM-L6-v2");
-//        Iterator<? extends OntResource> resourceIterator = matcher.getResourcesExtractor().get(0).extract(targetOntology, properties);
-//        OntResource resource = StreamSupport.stream(getIterable(resourceIterator).spliterator(), false)
-//                .filter(r -> r.isURIResource() && r.getURI().equals("http://human.owl#NCI_C12519")).findFirst().get();
-
-        // When
         Resource resource = ontModel.getResource(uri);
         Map<String, Set<?>> textMolecule = extractor.moleculesFromResource(resource).stream().findFirst().orElse(null);
         List<String> objectStatementTexts = new ArrayList<>();
@@ -51,7 +41,6 @@ public class TMExplainer implements IExplainerResourceWithJenaOntology {
                 .map(target -> ((String) target).toUpperCase()).collect(Collectors.joining("|"))
                 + ">"
                 + (objectStatementTexts.isEmpty() ? "" : " " + String.join("|", objectStatementTexts));
-        // Then
         return Map.of("TM", slmr);
     }
 

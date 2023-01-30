@@ -3,6 +3,9 @@ package de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtr
 import de.uni_mannheim.informatik.dws.melt.matching_jena_matchers.util.textExtractors.kBert.processedNode.ProcessedRDFNode;
 import org.apache.jena.rdf.model.Statement;
 
+/**
+ * Abstract implementation of an object statement
+ */
 public abstract class ObjectStatement<T extends ProcessedRDFNode> extends ProcessedStatement<T> {
     public ObjectStatement(Statement statement) {
         super(statement);

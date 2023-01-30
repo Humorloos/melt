@@ -1,3 +1,7 @@
+"""
+monkey patch for albert bi-encoder's forward method, bi-encoder's pooling layer and transformer wrapper forward
+function and the get_extended_attention_mask() function
+"""
 from typing import Optional, Tuple, Union, Dict
 
 import torch

@@ -1,3 +1,6 @@
+"""
+This script contains the ray tune trainable for training cross-encoders with hyperparameter optimization
+"""
 import logging
 import os
 import pytorch_lightning as pl
